@@ -179,49 +179,7 @@ export default function Home() {
           </div>
 
         </section>
-
-        {/* Navegação */}
-        <nav className="mt-auto pt-12">
-          <div className="grid grid-cols-5 gap-2 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-2">
-
-            <Link
-              href="/"
-              className="rounded-xl bg-zinc-800 px-3 py-3 text-center text-sm"
-            >
-              Início
-            </Link>
-
-            <Link
-              href="/agenda"
-              className="rounded-xl px-3 py-3 text-center text-sm text-zinc-400 hover:bg-zinc-800"
-            >
-              Agenda
-            </Link>
-
-            <Link
-              href="/criar"
-              className="rounded-xl px-3 py-3 text-center text-sm text-zinc-400 hover:bg-zinc-800"
-            >
-              +
-            </Link>
-
-            <Link
-              href="/tarefas"
-              className="rounded-xl px-3 py-3 text-center text-sm text-zinc-400 hover:bg-zinc-800"
-            >
-              Tarefas
-            </Link>
-
-            <Link
-              href="/grupos"
-              className="rounded-xl px-3 py-3 text-center text-sm text-zinc-400 hover:bg-zinc-800"
-            >
-              Grupos
-            </Link>
-
-          </div>
-        </nav>
-
+      
       </div>
     </main>
   );
