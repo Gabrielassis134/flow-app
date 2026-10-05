@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
@@ -172,6 +171,29 @@ function getWeekStart(date: Date) {
   return result;
 }
 
+function addMinutesToTime(
+  time: string,
+  minutes: number
+) {
+  const [hours, mins] = time
+    .split(":")
+    .map(Number);
+
+  const totalMinutes =
+    hours * 60 + mins + minutes;
+
+  const finalHours =
+    Math.floor(totalMinutes / 60) % 24;
+
+  const finalMinutes =
+    totalMinutes % 60;
+
+  return `${String(finalHours).padStart(
+    2,
+    "0"
+  )}:${String(finalMinutes).padStart(2, "0")}`;
+}
+
 export default function AgendaPage() {
   const router = useRouter();
   const [selectedDate, setSelectedDate] = useState(
@@ -183,34 +205,74 @@ export default function AgendaPage() {
   const [activities, setActivities] =
     useState<Activity[]>(initialActivities);
 
-    useEffect(() => {
-  const savedActivities = getSavedActivities();
+  useEffect(() => {
+    const savedActivities = getSavedActivities();
+    const savedTasks = localStorage.getItem("flow-tasks");
 
-  if (savedActivities.length === 0) {
-    return;
-  }
+    let taskActivities: Activity[] = [];
 
-  setActivities((current) => {
-    const existingIds = new Set(
-      current.map((activity) => activity.id)
-    );
+    if (savedTasks) {
+      try {
+        const tasks = JSON.parse(savedTasks);
 
-    const newActivities = savedActivities.filter(
-      (activity) => !existingIds.has(activity.id)
-    );
+        if (Array.isArray(tasks)) {
+          const scheduledTasks = tasks.filter(
+            (task) =>
+              task.hasTime &&
+              task.startTime &&
+              task.date &&
+              !task.completed
+          );
 
-    return [...current, ...newActivities];
-  });
-}, []);
+          taskActivities = scheduledTasks.map((task) => ({
+            id: task.id + 1000000000000,
+            title: task.title,
+            date: task.date,
+            start: task.startTime,
+            end: addMinutesToTime(
+              task.startTime,
+              task.durationMinutes
+            ),
+            category: task.category,
+            color:
+              task.category === "Estudos"
+                ? "border-l-violet-400"
+                : task.category === "Escola"
+                ? "border-l-sky-400"
+                : task.category === "Igreja"
+                ? "border-l-amber-400"
+                : task.category === "Robótica"
+                ? "border-l-emerald-400"
+                : task.category === "Música"
+                ? "border-l-pink-400"
+                : "border-l-zinc-400",
+          }));
+        }
+      } catch {
+        console.error(
+          "Não foi possível carregar as tarefas na Agenda."
+        );
+      }
+    }
 
-  const [showForm, setShowForm] = useState(false);
+    setActivities((current) => {
+      const existingIds = new Set(
+        current.map((activity) => activity.id)
+      );
+
+      const newActivities = [
+        ...savedActivities,
+        ...taskActivities,
+      ].filter(
+        (activity) => !existingIds.has(activity.id)
+      );
+
+      return [...current, ...newActivities];
+    });
+  }, []);
+
   const [selectedActivity, setSelectedActivity] =
-    useState<Activity | null>(null);
-
-  const [title, setTitle] = useState("");
-  const [start, setStart] = useState("14:00");
-  const [end, setEnd] = useState("15:00");
-  const [category, setCategory] = useState("Pessoal");
+  useState<Activity | null>(null);
 
   const weekStart = getWeekStart(selectedDate);
 
@@ -234,35 +296,6 @@ export default function AgendaPage() {
         return next;
       });
     }
-  }
-
-  function createActivity(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (!title.trim() || start >= end) return;
-
-    const newActivity: Activity = {
-      id: Date.now(),
-      title: title.trim(),
-      date: dateKey(selectedDate),
-      start,
-      end,
-      category,
-      color:
-        category === "Escola"
-          ? "border-l-sky-400"
-          : category === "Estudos"
-          ? "border-l-violet-400"
-          : category === "Igreja"
-          ? "border-l-amber-400"
-          : category === "Música"
-          ? "border-l-pink-400"
-          : "border-l-emerald-400",
-    };
-
-    setActivities((current) => [...current, newActivity]);
-    setTitle("");
-    setShowForm(false);
   }
 
   const heading =
@@ -503,7 +536,7 @@ export default function AgendaPage() {
                   Que tal aproveitar esse tempo livre?
                 </p>
                 <button
-                  onClick={() => setShowForm(true)}
+                  onClick={() => router.push("/criar/compromisso")}
                   className="mt-4 text-sm text-sky-300 hover:text-sky-200"
                 >
                   + Adicionar atividade
@@ -561,95 +594,6 @@ export default function AgendaPage() {
           </div>
         </section>
       </div>
-
-      {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <form
-            onSubmit={createActivity}
-            className="w-full max-w-md rounded-3xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl"
-          >
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold">Nova atividade</h2>
-              <button
-                type="button"
-                onClick={() => setShowForm(false)}
-                className="rounded-lg px-3 py-1 text-zinc-400 hover:bg-zinc-800"
-              >
-                ✕
-              </button>
-            </div>
-
-            <p className="mt-2 text-sm text-zinc-400">
-              {formatDate(selectedDate)}
-            </p>
-
-            <label className="mt-6 block text-sm text-zinc-300">
-              Nome da atividade
-              <input
-                autoFocus
-                required
-                value={title}
-                onChange={(event) => setTitle(event.target.value)}
-                placeholder="Ex.: Estudar matemática"
-                className="mt-2 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 outline-none focus:border-sky-400"
-              />
-            </label>
-
-            <label className="mt-4 block text-sm text-zinc-300">
-              Categoria
-              <select
-                value={category}
-                onChange={(event) => setCategory(event.target.value)}
-                className="mt-2 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 outline-none focus:border-sky-400"
-              >
-                <option>Escola</option>
-                <option>Estudos</option>
-                <option>Pessoal</option>
-                <option>Igreja</option>
-                <option>Música</option>
-              </select>
-            </label>
-
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              <label className="text-sm text-zinc-300">
-                Início
-                <input
-                  required
-                  type="time"
-                  value={start}
-                  onChange={(event) => setStart(event.target.value)}
-                  className="mt-2 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 outline-none focus:border-sky-400"
-                />
-              </label>
-
-              <label className="text-sm text-zinc-300">
-                Término
-                <input
-                  required
-                  type="time"
-                  value={end}
-                  onChange={(event) => setEnd(event.target.value)}
-                  className="mt-2 w-full rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-3 outline-none focus:border-sky-400"
-                />
-              </label>
-            </div>
-
-            {start >= end && (
-              <p className="mt-2 text-sm text-rose-300">
-                O término precisa ser depois do início.
-              </p>
-            )}
-
-            <button
-              type="submit"
-              disabled={!title.trim() || start >= end}
-              className="mt-6 w-full rounded-xl bg-sky-400 px-4 py-3 font-semibold text-zinc-950 transition hover:bg-sky-300 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Salvar atividade
-            </button>
-          </form>
-        </div>
-      )}
 
       {selectedActivity && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
