@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type Priority = "Alta" | "Média" | "Baixa";
 type Filter = "Todas" | "Hoje" | "Próximas" | "Atrasadas" | "Concluídas";
@@ -100,6 +100,40 @@ export default function TarefasPage() {
   const [filter, setFilter] = useState<Filter>("Todas");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
+  useEffect(() => {
+  const saved = localStorage.getItem("flow-tasks");
+
+  if (!saved) {
+    return;
+  }
+
+  try {
+    const savedTasks = JSON.parse(saved);
+
+    if (!Array.isArray(savedTasks)) {
+      return;
+    }
+
+    setTasks((currentTasks) => {
+      const savedIds = new Set(
+        savedTasks.map((task) => task.id)
+      );
+
+      const exampleTasks = currentTasks.filter(
+        (task) => !savedIds.has(task.id)
+      );
+
+      return [...exampleTasks, ...savedTasks];
+    });
+  } catch {
+    console.error(
+      "Não foi possível carregar as tarefas salvas."
+    );
+  }
+}, []);
+
+
+
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
       if (filter === "Todas") return true;
@@ -131,31 +165,89 @@ export default function TarefasPage() {
   const completedCount = tasks.filter((task) => task.completed).length;
 
   function toggleTask(id: number) {
-    setTasks((current) =>
-      current.map((task) =>
-        task.id === id
-          ? { ...task, completed: !task.completed }
-          : task
-      )
+  setTasks((current) => {
+    const updatedTasks = current.map((task) =>
+      task.id === id
+        ? { ...task, completed: !task.completed }
+        : task
     );
 
-    setSelectedTask((current) => {
-      if (!current || current.id !== id) return current;
+    const saved = localStorage.getItem("flow-tasks");
 
-      return {
-        ...current,
-        completed: !current.completed,
-      };
-    });
-  }
+    if (saved) {
+      try {
+        const savedTasks = JSON.parse(saved);
+
+        if (Array.isArray(savedTasks)) {
+          const savedIds = new Set(
+            savedTasks.map((task) => task.id)
+          );
+
+          const updatedSavedTasks = updatedTasks.filter(
+            (task) => savedIds.has(task.id)
+          );
+
+          localStorage.setItem(
+            "flow-tasks",
+            JSON.stringify(updatedSavedTasks)
+          );
+        }
+      } catch {
+        console.error(
+          "Não foi possível atualizar a tarefa."
+        );
+      }
+    }
+
+    return updatedTasks;
+  });
+
+  setSelectedTask((current) => {
+    if (!current || current.id !== id) {
+      return current;
+    }
+
+    return {
+      ...current,
+      completed: !current.completed,
+    };
+  });
+}
 
   function deleteTask(id: number) {
-    setTasks((current) =>
-      current.filter((task) => task.id !== id)
+  setTasks((current) => {
+    const updatedTasks = current.filter(
+      (task) => task.id !== id
     );
 
-    setSelectedTask(null);
-  }
+    const saved = localStorage.getItem("flow-tasks");
+
+    if (saved) {
+      try {
+        const savedTasks = JSON.parse(saved);
+
+        if (Array.isArray(savedTasks)) {
+          const updatedSavedTasks = savedTasks.filter(
+            (task) => task.id !== id
+          );
+
+          localStorage.setItem(
+            "flow-tasks",
+            JSON.stringify(updatedSavedTasks)
+          );
+        }
+      } catch {
+        console.error(
+          "Não foi possível excluir a tarefa."
+        );
+      }
+    }
+
+    return updatedTasks;
+  });
+
+  setSelectedTask(null);
+}
 
   return (
     <main className="min-h-screen bg-zinc-950 pb-32 text-zinc-100">
