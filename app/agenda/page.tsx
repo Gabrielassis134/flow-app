@@ -1,8 +1,14 @@
 
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+
+import {
+  getSavedActivities,
+  saveActivities,
+} from "../lib/activities";
 
 type Activity = {
   id: number;
@@ -167,6 +173,7 @@ function getWeekStart(date: Date) {
 }
 
 export default function AgendaPage() {
+  const router = useRouter();
   const [selectedDate, setSelectedDate] = useState(
     new Date(2026, 9, 4)
   );
@@ -175,6 +182,26 @@ export default function AgendaPage() {
 
   const [activities, setActivities] =
     useState<Activity[]>(initialActivities);
+
+    useEffect(() => {
+  const savedActivities = getSavedActivities();
+
+  if (savedActivities.length === 0) {
+    return;
+  }
+
+  setActivities((current) => {
+    const existingIds = new Set(
+      current.map((activity) => activity.id)
+    );
+
+    const newActivities = savedActivities.filter(
+      (activity) => !existingIds.has(activity.id)
+    );
+
+    return [...current, ...newActivities];
+  });
+}, []);
 
   const [showForm, setShowForm] = useState(false);
   const [selectedActivity, setSelectedActivity] =
@@ -277,7 +304,7 @@ export default function AgendaPage() {
           </div>
 
           <button
-            onClick={() => setShowForm(true)}
+            onClick={() => router.push("/criar/compromisso")}
             className="shrink-0 rounded-2xl bg-sky-400 px-4 py-3 text-sm font-semibold text-zinc-950 transition hover:bg-sky-300"
           >
             + Nova atividade

@@ -1,59 +1,75 @@
-import Link from "next/link";
+"use client";
 
-export default function Criar() {
+import { useRouter } from "next/navigation";
+
+const options = [
+  {
+    title: "Nova tarefa",
+    description: "Algo que precisa ser feito",
+    icon: "✓",
+    route: "/criar/tarefa",
+  },
+  {
+    title: "Compromisso",
+    description: "Um evento com horário",
+    icon: "◷",
+    route: "/criar/compromisso",
+  },
+  {
+    title: "Atividade de grupo",
+    description: "Algo envolvendo outras pessoas",
+    icon: "👥",
+    route: "/criar/grupo",
+  },
+];
+
+export default function CriarPage() {
+  const router = useRouter();
+
   return (
-    <main className="min-h-screen bg-zinc-950 text-zinc-100">
-      <div className="mx-auto max-w-2xl px-6 py-8">
+    <main className="min-h-screen bg-zinc-950 pb-32 text-zinc-100">
+      <div className="mx-auto max-w-3xl px-6 py-8">
+        <header>
+          <p className="text-sm text-zinc-500">
+            Nova criação
+          </p>
 
-        <Link
-          href="/"
-          className="text-sm text-zinc-400 hover:text-zinc-200"
-        >
-          ← Voltar
-        </Link>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight">
+            Criar
+          </h1>
 
-        <h1 className="mt-8 text-3xl font-semibold">
-          Criar
-        </h1>
+          <p className="mt-2 text-sm text-zinc-400">
+            O que você quer criar?
+          </p>
+        </header>
 
-        <p className="mt-2 text-zinc-400">
-          O que você deseja adicionar?
-        </p>
+        <section className="mt-8 space-y-3">
+          {options.map((option) => (
+            <button
+              key={option.title}
+              onClick={() => router.push(option.route)}
+              className="flex w-full items-center gap-4 rounded-3xl border border-zinc-800 bg-zinc-900/70 p-5 text-left transition hover:border-zinc-700 hover:bg-zinc-900"
+            >
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-zinc-800 text-lg">
+                {option.icon}
+              </div>
 
-        <div className="mt-8 grid gap-4">
+              <div className="min-w-0 flex-1">
+                <h2 className="font-medium">
+                  {option.title}
+                </h2>
 
-          <button className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 text-left transition hover:bg-zinc-800">
-            <h2 className="text-lg font-medium">
-              Nova tarefa
-            </h2>
+                <p className="mt-1 text-sm text-zinc-500">
+                  {option.description}
+                </p>
+              </div>
 
-            <p className="mt-1 text-sm text-zinc-400">
-              Adicione algo que precisa ser feito.
-            </p>
-          </button>
-
-          <button className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 text-left transition hover:bg-zinc-800">
-            <h2 className="text-lg font-medium">
-              Novo compromisso
-            </h2>
-
-            <p className="mt-1 text-sm text-zinc-400">
-              Adicione algo que já possui horário definido.
-            </p>
-          </button>
-
-          <button className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 text-left transition hover:bg-zinc-800">
-            <h2 className="text-lg font-medium">
-              Atividade de grupo
-            </h2>
-
-            <p className="mt-1 text-sm text-zinc-400">
-              Crie uma atividade envolvendo outras pessoas.
-            </p>
-          </button>
-
-        </div>
-
+              <span className="text-xl text-zinc-600">
+                ›
+              </span>
+            </button>
+          ))}
+        </section>
       </div>
     </main>
   );
