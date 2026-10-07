@@ -9,14 +9,15 @@ type Task = {
   id: number;
   title: string;
   description: string;
-  deadline: string;
-  duration: string;
+  date: string;
+  durationMinutes: number;
+  duration?: string;
+  hasTime: boolean;
+  startTime?: string;
   priority: Priority;
   category: string;
   completed: boolean;
 };
-
-
 
 const priorityStyles = {
   Alta: {
@@ -49,6 +50,12 @@ export default function TarefasPage() {
   const [filter, setFilter] = useState<Filter>("Todas");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
+  function formatDate(date: string) {
+  const [year, month, day] = date.split("-");
+
+  return `${day}/${month}/${year}`;
+}
+
   useEffect(() => {
   const saved = localStorage.getItem("flow-tasks");
 
@@ -79,19 +86,34 @@ export default function TarefasPage() {
       if (filter === "Todas") return true;
 
       if (filter === "Hoje") {
-        return task.deadline === "Hoje" && !task.completed;
-      }
+  const today = new Date();
 
-      if (filter === "Próximas") {
-        return (
-          ["Amanhã", "Sexta-feira", "Domingo"].includes(task.deadline) &&
-          !task.completed
-        );
-      }
+  const todayKey = `${today.getFullYear()}-${String(
+    today.getMonth() + 1
+  ).padStart(2, "0")}-${String(
+    today.getDate()
+  ).padStart(2, "0")}`;
 
-      if (filter === "Atrasadas") {
-        return task.deadline === "Ontem" && !task.completed;
-      }
+  return task.date === todayKey && !task.completed;
+}
+
+if (filter === "Próximas") {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const taskDate = new Date(`${task.date}T00:00:00`);
+
+  return taskDate > today && !task.completed;
+}
+
+if (filter === "Atrasadas") {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const taskDate = new Date(`${task.date}T00:00:00`);
+
+  return taskDate < today && !task.completed;
+}
 
       if (filter === "Concluídas") {
         return task.completed;
@@ -329,12 +351,26 @@ export default function TarefasPage() {
 
                       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500">
                         <span>
-                          Prazo: {task.deadline}
+                          <span>
+  Prazo: {formatDate(task.date)}
+</span>
                         </span>
 
                         <span>
-                          {task.duration}
-                        </span>
+  {task.durationMinutes >= 60
+    ? `${Math.floor(task.durationMinutes / 60)}h${
+        task.durationMinutes % 60
+          ? ` ${task.durationMinutes % 60}min`
+          : ""
+      }`
+    : `${task.durationMinutes}min`}
+</span>
+
+<span>
+  {task.hasTime && task.startTime
+    ? `às ${task.startTime}`
+    : "Sem horário"}
+</span>
 
                         <span>
                           {task.category}
@@ -442,48 +478,66 @@ export default function TarefasPage() {
             </p>
 
             <div className="mt-6 grid grid-cols-2 gap-3">
-              <div className="rounded-2xl bg-zinc-950 p-4">
-                <p className="text-xs text-zinc-500">
-                  Prazo
-                </p>
+  <div className="rounded-2xl bg-zinc-950 p-4">
+    <p className="text-xs text-zinc-500">
+      Horário
+    </p>
 
-                <p className="mt-1 text-sm">
-                  {selectedTask.deadline}
-                </p>
-              </div>
+    <p className="mt-1 text-sm">
+      {selectedTask.hasTime && selectedTask.startTime
+        ? selectedTask.startTime
+        : "Sem horário"}
+    </p>
+  </div>
 
-              <div className="rounded-2xl bg-zinc-950 p-4">
-                <p className="text-xs text-zinc-500">
-                  Duração
-                </p>
+  <div className="rounded-2xl bg-zinc-950 p-4">
+    <p className="text-xs text-zinc-500">
+      Prazo
+    </p>
 
-                <p className="mt-1 text-sm">
-                  {selectedTask.duration}
-                </p>
-              </div>
+    <p className="mt-1 text-sm">
+      {formatDate(selectedTask.date)}
+    </p>
+  </div>
 
-              <div className="rounded-2xl bg-zinc-950 p-4">
-                <p className="text-xs text-zinc-500">
-                  Prioridade
-                </p>
+  <div className="rounded-2xl bg-zinc-950 p-4">
+    <p className="text-xs text-zinc-500">
+      Duração
+    </p>
 
-                <p className="mt-1 text-sm">
-                  {selectedTask.priority}
-                </p>
-              </div>
+    <p className="mt-1 text-sm">
+      {selectedTask.durationMinutes >= 60
+        ? `${Math.floor(selectedTask.durationMinutes / 60)}h${
+            selectedTask.durationMinutes % 60
+              ? ` ${selectedTask.durationMinutes % 60}min`
+              : ""
+          }`
+        : `${selectedTask.durationMinutes}min`}
+    </p>
+  </div>
 
-              <div className="rounded-2xl bg-zinc-950 p-4">
-                <p className="text-xs text-zinc-500">
-                  Status
-                </p>
+  <div className="rounded-2xl bg-zinc-950 p-4">
+    <p className="text-xs text-zinc-500">
+      Prioridade
+    </p>
 
-                <p className="mt-1 text-sm">
-                  {selectedTask.completed
-                    ? "Concluída"
-                    : "Pendente"}
-                </p>
-              </div>
-            </div>
+    <p className="mt-1 text-sm">
+      {selectedTask.priority}
+    </p>
+  </div>
+
+  <div className="col-span-2 rounded-2xl bg-zinc-950 p-4">
+    <p className="text-xs text-zinc-500">
+      Status
+    </p>
+
+    <p className="mt-1 text-sm">
+      {selectedTask.completed
+        ? "Concluída"
+        : "Pendente"}
+    </p>
+  </div>
+</div>
 
             <div className="mt-6 flex flex-col gap-2 sm:flex-row">
               <button
