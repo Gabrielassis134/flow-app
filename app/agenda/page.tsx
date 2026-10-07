@@ -17,6 +17,10 @@ type Activity = {
   end: string;
   category: string;
   color: string;
+  recurrence?: "none" | "weekly" | "weekdays" | "custom";
+  recurrenceDays?: number[];
+  recurrenceEnd?: "never" | "date";
+  recurrenceEndDate?: string | null;
 };
 
 const weekdays = [
@@ -43,6 +47,52 @@ function addDays(date: Date, amount: number) {
   const result = new Date(date);
   result.setDate(result.getDate() + amount);
   return result;
+}
+
+function activityOccursOnDate(
+  activity: Activity,
+  date: Date
+) {
+  const activityDate = new Date(
+    `${activity.date}T00:00:00`
+  );
+
+  if (date < activityDate) {
+    return false;
+  }
+
+    if (
+    activity.recurrenceEnd === "date" &&
+    activity.recurrenceEndDate
+  ) {
+    const recurrenceEndDate = new Date(
+      `${activity.recurrenceEndDate}T00:00:00`
+    );
+
+    if (date > recurrenceEndDate) {
+      return false;
+    }
+  }
+
+  const dayOfWeek = date.getDay();
+
+  if (!activity.recurrence || activity.recurrence === "none") {
+    return activity.date === dateKey(date);
+  }
+
+  if (activity.recurrence === "weekly") {
+    return dayOfWeek === activityDate.getDay();
+  }
+
+  if (activity.recurrence === "weekdays") {
+    return dayOfWeek >= 1 && dayOfWeek <= 5;
+  }
+
+  if (activity.recurrence === "custom") {
+    return activity.recurrenceDays?.includes(dayOfWeek) ?? false;
+  }
+
+  return false;
 }
 
 function formatDate(date: Date) {
@@ -169,8 +219,10 @@ export default function AgendaPage() {
   );
 
   const selectedActivities = activities
-    .filter((activity) => activity.date === dateKey(selectedDate))
-    .sort((a, b) => a.start.localeCompare(b.start));
+  .filter((activity) =>
+    activityOccursOnDate(activity, selectedDate)
+  )
+  .sort((a, b) => a.start.localeCompare(b.start));
 
   function moveDate(direction: number) {
     if (view === "Dia") {
