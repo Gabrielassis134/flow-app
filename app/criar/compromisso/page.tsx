@@ -67,6 +67,31 @@ export default function CompromissoPage() {
   const [endHour, setEndHour] = useState(9);
   const [endMinute, setEndMinute] = useState(0);
 
+  const [conflict, setConflict] = useState<{
+  title: string;
+  start: string;
+  end: string;
+} | null>(null);
+
+  const [recurrence, setRecurrence] = useState<
+  "none" | "weekly" | "weekdays" | "custom"
+>("none");
+
+const [recurrenceDays, setRecurrenceDays] = useState<number[]>([]);
+
+const [recurrenceEnd, setRecurrenceEnd] = useState<
+  "never" | "date"
+>("never");
+
+const [recurrenceEndDay, setRecurrenceEndDay] =
+  useState(today.day);
+
+const [recurrenceEndMonth, setRecurrenceEndMonth] =
+  useState(today.month);
+
+const [recurrenceEndYear, setRecurrenceEndYear] =
+  useState(today.year);
+
   const currentYear = new Date().getFullYear();
 
   const availableYears = useMemo(() => {
@@ -106,7 +131,135 @@ export default function CompromissoPage() {
     }
   }
 
-  function handleSave() {
+  function timeToMinutes(time: string) {
+  const [hours, minutes] = time.split(":").map(Number);
+
+  return hours * 60 + minutes;
+}
+
+function overlaps(
+  startA: string,
+  endA: string,
+  startB: string,
+  endB: string
+) {
+  const startAMinutes = timeToMinutes(startA);
+  const endAMinutes = timeToMinutes(endA);
+
+  const startBMinutes = timeToMinutes(startB);
+  const endBMinutes = timeToMinutes(endB);
+
+  return (
+    startAMinutes < endBMinutes &&
+    endAMinutes > startBMinutes
+  );
+}
+
+function findConflict(
+  date: string,
+  start: string,
+  end: string
+) {
+  const activities = getSavedActivities();
+
+  const activityConflict = activities.find((activity) => {
+    if (activity.date !== date) {
+      return false;
+    }
+
+    return overlaps(
+      start,
+      end,
+      activity.start,
+      activity.end
+    );
+  });
+
+  if (activityConflict) {
+    return {
+      title: activityConflict.title,
+      start: activityConflict.start,
+      end: activityConflict.end,
+    };
+  }
+
+  const savedTasks = localStorage.getItem("flow-tasks");
+
+  if (savedTasks) {
+    try {
+      const tasks = JSON.parse(savedTasks);
+
+      if (Array.isArray(tasks)) {
+        const taskConflict = tasks.find(
+          (task) => {
+            if (
+              task.completed ||
+              !task.hasTime ||
+              !task.startTime ||
+              task.date !== date
+            ) {
+              return false;
+            }
+
+            const taskStart = task.startTime;
+
+            const taskDuration =
+              Number(task.durationMinutes) || 0;
+
+            const taskStartMinutes =
+              timeToMinutes(taskStart);
+
+            const taskEndMinutes =
+              taskStartMinutes + taskDuration;
+
+            const taskEnd =
+              `${String(
+                Math.floor(taskEndMinutes / 60)
+              ).padStart(2, "0")}:${String(
+                taskEndMinutes % 60
+              ).padStart(2, "0")}`;
+
+            return overlaps(
+              start,
+              end,
+              taskStart,
+              taskEnd
+            );
+          }
+        );
+
+        if (taskConflict) {
+          return {
+            title: taskConflict.title,
+            start: taskConflict.startTime,
+            end: (() => {
+              const startMinutes =
+                timeToMinutes(taskConflict.startTime);
+
+              const endMinutes =
+                startMinutes +
+                (Number(taskConflict.durationMinutes) || 0);
+
+              return `${String(
+                Math.floor(endMinutes / 60)
+              ).padStart(2, "0")}:${String(
+                endMinutes % 60
+              ).padStart(2, "0")}`;
+            })(),
+          };
+        }
+      }
+    } catch {
+      console.error(
+        "Não foi possível verificar conflitos com as tarefas."
+      );
+    }
+  }
+
+  return null;
+}
+
+  function handleSave(forceSave = false) {
   if (!title || isBeforeToday || isInvalidTime) {
     return;
   }
@@ -126,15 +279,41 @@ export default function CompromissoPage() {
     "0"
   )}:${String(endMinute).padStart(2, "0")}`;
 
-  const newActivity = {
-    id: Date.now(),
-    title: title.trim(),
-    date,
-    start: startTime,
-    end: endTime,
-    category,
-    color: getCategoryColor(category),
-  };
+    if (!forceSave) {
+    const foundConflict = findConflict(
+      date,
+      startTime,
+      endTime
+    );
+
+    if (foundConflict) {
+      setConflict(foundConflict);
+      return;
+    }
+  }
+
+  const recurrenceEndDate =
+  recurrence !== "none" && recurrenceEnd === "date"
+    ? `${recurrenceEndYear}-${String(
+        recurrenceEndMonth + 1
+      ).padStart(2, "0")}-${String(
+        recurrenceEndDay
+      ).padStart(2, "0")}`
+    : null;
+
+const newActivity = {
+  id: Date.now(),
+  title: title.trim(),
+  date,
+  start: startTime,
+  end: endTime,
+  category,
+  color: getCategoryColor(category),
+  recurrence,
+  recurrenceDays,
+  recurrenceEnd,
+  recurrenceEndDate,
+};
 
   const currentActivities = getSavedActivities();
 
@@ -292,6 +471,162 @@ export default function CompromissoPage() {
             )}
           </div>
 
+           {/* Recorrência */}
+          <div className="mt-5">
+            <label className="text-sm font-medium text-zinc-300">
+              Repetição
+            </label>
+
+            <select
+              value={recurrence}
+              onChange={(event) =>
+                setRecurrence(
+                  event.target.value as
+                    | "none"
+                    | "weekly"
+                    | "weekdays"
+                    | "custom"
+                )
+              }
+              className="mt-2 w-full rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm outline-none focus:border-zinc-600"
+            >
+              <option value="none">Não se repete</option>
+              <option value="weekly">Toda semana</option>
+              <option value="weekdays">Segunda a sexta</option>
+              <option value="custom">Personalizado</option>
+            </select>
+
+            {recurrence === "custom" && (
+              <div className="mt-3 grid grid-cols-7 gap-2">
+                {[
+                  { label: "D", value: 0 },
+                  { label: "S", value: 1 },
+                  { label: "T", value: 2 },
+                  { label: "Q", value: 3 },
+                  { label: "Q", value: 4 },
+                  { label: "S", value: 5 },
+                  { label: "S", value: 6 },
+                ].map((dayOption) => {
+                  const selected = recurrenceDays.includes(
+                    dayOption.value
+                  );
+
+                  return (
+                    <button
+                      key={dayOption.value}
+                      type="button"
+                      onClick={() => {
+                        setRecurrenceDays((current) =>
+                          selected
+                            ? current.filter(
+                                (day) => day !== dayOption.value
+                              )
+                            : [...current, dayOption.value]
+                        );
+                      }}
+                      className={`rounded-xl border px-2 py-3 text-sm transition ${
+                        selected
+                          ? "border-zinc-300 bg-zinc-100 text-zinc-950"
+                          : "border-zinc-800 bg-zinc-950 text-zinc-400 hover:border-zinc-600"
+                      }`}
+                    >
+                      {dayOption.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+                        {recurrence !== "none" && (
+              <div className="mt-5">
+                <label className="text-sm font-medium text-zinc-300">
+                  Termina
+                </label>
+
+                <select
+                  value={recurrenceEnd}
+                  onChange={(event) =>
+                    setRecurrenceEnd(
+                      event.target.value as "never" | "date"
+                    )
+                  }
+                  className="mt-2 w-full rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm outline-none focus:border-zinc-600"
+                >
+                  <option value="never">Nunca</option>
+                  <option value="date">Em uma data</option>
+                </select>
+              </div>
+            )}
+
+                        {recurrence !== "none" &&
+              recurrenceEnd === "date" && (
+                <div className="mt-3">
+                  <label className="text-sm font-medium text-zinc-300">
+                    Data final
+                  </label>
+
+                  <div className="mt-2 grid grid-cols-[0.8fr_1.5fr_1fr] gap-2">
+                    <select
+                      value={recurrenceEndDay}
+                      onChange={(event) =>
+                        setRecurrenceEndDay(
+                          Number(event.target.value)
+                        )
+                      }
+                      className="rounded-2xl border border-zinc-800 bg-zinc-950 px-3 py-3 text-sm outline-none focus:border-zinc-600"
+                    >
+                      {Array.from(
+                        {
+                          length: daysInMonth(
+                            recurrenceEndMonth,
+                            recurrenceEndYear
+                          ),
+                        },
+                        (_, index) => index + 1
+                      ).map((item) => (
+                        <option key={item} value={item}>
+                          {String(item).padStart(2, "0")}
+                        </option>
+                      ))}
+                    </select>
+
+                    <select
+                      value={recurrenceEndMonth}
+                      onChange={(event) =>
+                        setRecurrenceEndMonth(
+                          Number(event.target.value)
+                        )
+                      }
+                      className="rounded-2xl border border-zinc-800 bg-zinc-950 px-3 py-3 text-sm outline-none focus:border-zinc-600"
+                    >
+                      {months.map((item, index) => (
+                        <option key={item} value={index}>
+                          {item}
+                        </option>
+                      ))}
+                    </select>
+
+                    <select
+                      value={recurrenceEndYear}
+                      onChange={(event) =>
+                        setRecurrenceEndYear(
+                          Number(event.target.value)
+                        )
+                      }
+                      className="rounded-2xl border border-zinc-800 bg-zinc-950 px-3 py-3 text-sm outline-none focus:border-zinc-600"
+                    >
+                      {availableYears.map((item) => (
+                        <option key={item} value={item}>
+                          {item}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
+          </div>
+
           {/* Horários */}
           <div className="mt-5 grid gap-5 sm:grid-cols-2">
 
@@ -418,7 +753,7 @@ export default function CompromissoPage() {
 
           {/* Botão */}
           <button
-            onClick={handleSave}
+            onClick={() => handleSave(false)}
             disabled={
               !title ||
               isBeforeToday ||
@@ -429,6 +764,52 @@ export default function CompromissoPage() {
             Salvar compromisso
           </button>
         </section>
+                {conflict && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-6">
+            <div className="w-full max-w-md rounded-3xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl">
+              <p className="text-sm text-zinc-500">
+                Conflito de horário
+              </p>
+
+              <h2 className="mt-2 text-xl font-semibold">
+                Esse horário já está ocupado
+              </h2>
+
+              <p className="mt-3 text-sm leading-6 text-zinc-400">
+                Você já tem{" "}
+                <span className="font-medium text-zinc-200">
+                  {conflict.title}
+                </span>{" "}
+                nesse período:
+              </p>
+
+              <p className="mt-2 text-sm font-medium text-zinc-200">
+                {conflict.start} – {conflict.end}
+              </p>
+
+              <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => setConflict(null)}
+                  className="rounded-2xl border border-zinc-700 px-4 py-3 text-sm font-medium text-zinc-200 transition hover:bg-zinc-800"
+                >
+                  Trocar horário
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setConflict(null);
+                    handleSave(true);
+                  }}
+                  className="rounded-2xl bg-zinc-100 px-4 py-3 text-sm font-medium text-zinc-950 transition hover:bg-white"
+                >
+                  Adicionar mesmo assim
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );
