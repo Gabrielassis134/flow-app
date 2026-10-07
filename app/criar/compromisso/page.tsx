@@ -163,7 +163,59 @@ function findConflict(
   const activities = getSavedActivities();
 
   const activityConflict = activities.find((activity) => {
-    if (activity.date !== date) {
+    const selectedDate = new Date(`${date}T00:00:00`);
+    const activityDate = new Date(
+      `${activity.date}T00:00:00`
+    );
+
+    if (selectedDate < activityDate) {
+      return false;
+    }
+
+    if (
+      activity.recurrenceEnd === "date" &&
+      activity.recurrenceEndDate
+    ) {
+      const recurrenceEndDate = new Date(
+        `${activity.recurrenceEndDate}T00:00:00`
+      );
+
+      if (selectedDate > recurrenceEndDate) {
+        return false;
+      }
+    }
+
+    let occursOnDate = false;
+
+    if (
+      !activity.recurrence ||
+      activity.recurrence === "none"
+    ) {
+      occursOnDate =
+        activity.date === date;
+    }
+
+    if (activity.recurrence === "weekly") {
+      occursOnDate =
+        selectedDate.getDay() ===
+        activityDate.getDay();
+    }
+
+    if (activity.recurrence === "weekdays") {
+      const dayOfWeek = selectedDate.getDay();
+
+      occursOnDate =
+        dayOfWeek >= 1 && dayOfWeek <= 5;
+    }
+
+    if (activity.recurrence === "custom") {
+      occursOnDate =
+        activity.recurrenceDays?.includes(
+          selectedDate.getDay()
+        ) ?? false;
+    }
+
+    if (!occursOnDate) {
       return false;
     }
 

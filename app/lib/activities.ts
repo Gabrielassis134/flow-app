@@ -6,6 +6,10 @@ export type Activity = {
   end: string;
   category: string;
   color: string;
+  recurrence?: "none" | "weekly" | "weekdays" | "custom";
+  recurrenceDays?: number[];
+  recurrenceEnd?: "never" | "date";
+  recurrenceEndDate?: string | null;
 };
 
 export const ACTIVITIES_STORAGE_KEY = "flow-activities";
