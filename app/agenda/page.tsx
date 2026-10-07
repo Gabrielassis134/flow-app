@@ -19,117 +19,6 @@ type Activity = {
   color: string;
 };
 
-const initialActivities: Activity[] = [
-  {
-    id: 1,
-    title: "Aula",
-    date: "2026-10-05",
-    start: "07:45",
-    end: "17:15",
-    category: "Escola",
-    color: "border-l-sky-400",
-  },
-  {
-    id: 2,
-    title: "Academia",
-    date: "2026-10-06",
-    start: "09:00",
-    end: "10:00",
-    category: "Pessoal",
-    color: "border-l-emerald-400",
-  },
-  {
-    id: 3,
-    title: "Aula",
-    date: "2026-10-06",
-    start: "13:15",
-    end: "17:15",
-    category: "Escola",
-    color: "border-l-sky-400",
-  },
-  {
-    id: 4,
-    title: "Curso de inglês",
-    date: "2026-10-06",
-    start: "19:00",
-    end: "21:00",
-    category: "Estudos",
-    color: "border-l-violet-400",
-  },
-  {
-    id: 5,
-    title: "Aula",
-    date: "2026-10-07",
-    start: "07:45",
-    end: "17:15",
-    category: "Escola",
-    color: "border-l-sky-400",
-  },
-  {
-    id: 6,
-    title: "Academia",
-    date: "2026-10-08",
-    start: "09:00",
-    end: "10:00",
-    category: "Pessoal",
-    color: "border-l-emerald-400",
-  },
-  {
-    id: 7,
-    title: "Culto",
-    date: "2026-10-08",
-    start: "19:00",
-    end: "22:00",
-    category: "Igreja",
-    color: "border-l-amber-400",
-  },
-  {
-    id: 8,
-    title: "Ensaio de baixo",
-    date: "2026-10-09",
-    start: "11:00",
-    end: "12:00",
-    category: "Música",
-    color: "border-l-pink-400",
-  },
-  {
-    id: 9,
-    title: "Ensaio da banda",
-    date: "2026-10-09",
-    start: "19:00",
-    end: "21:00",
-    category: "Música",
-    color: "border-l-pink-400",
-  },
-  {
-    id: 10,
-    title: "Escola bíblica",
-    date: "2026-10-11",
-    start: "09:00",
-    end: "10:30",
-    category: "Igreja",
-    color: "border-l-amber-400",
-  },
-  {
-    id: 11,
-    title: "Ensaio na igreja",
-    date: "2026-10-11",
-    start: "17:00",
-    end: "18:30",
-    category: "Música",
-    color: "border-l-pink-400",
-  },
-  {
-    id: 12,
-    title: "Culto",
-    date: "2026-10-11",
-    start: "19:00",
-    end: "21:30",
-    category: "Igreja",
-    color: "border-l-amber-400",
-  },
-];
-
 const weekdays = [
   "Domingo",
   "Segunda",
@@ -202,7 +91,7 @@ export default function AgendaPage() {
   const [view, setView] = useState<"Semana" | "Dia" | "Mês">("Semana");
 
   const [activities, setActivities] =
-    useState<Activity[]>(initialActivities);
+  useState<Activity[]>([]);
 
   useEffect(() => {
     const savedActivities = getSavedActivities();

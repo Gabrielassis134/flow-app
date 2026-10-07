@@ -16,58 +16,7 @@ type Task = {
   completed: boolean;
 };
 
-const initialTasks: Task[] = [
-  {
-    id: 1,
-    title: "Estudar Física",
-    description: "Revisar o conteúdo da próxima avaliação.",
-    deadline: "Hoje",
-    duration: "1h30",
-    priority: "Alta",
-    category: "Estudos",
-    completed: false,
-  },
-  {
-    id: 2,
-    title: "Projeto de robótica",
-    description: "Continuar a montagem e testar os componentes.",
-    deadline: "Sexta-feira",
-    duration: "2h",
-    priority: "Média",
-    category: "Robótica",
-    completed: false,
-  },
-  {
-    id: 3,
-    title: "Preparar material da aula",
-    description: "Organizar o material para a equipe.",
-    deadline: "Amanhã",
-    duration: "45 min",
-    priority: "Média",
-    category: "Robótica",
-    completed: false,
-  },
-  {
-    id: 4,
-    title: "Ler capítulo do livro",
-    description: "Leitura do próximo capítulo.",
-    deadline: "Domingo",
-    duration: "40 min",
-    priority: "Baixa",
-    category: "Pessoal",
-    completed: false,
-  },
-  {
-    id: 5,
-    title: "Revisar anotações",
-    description: "Organizar as anotações da semana.",
-    deadline: "Ontem",
-    duration: "30 min",
-    priority: "Alta",
-    category: "Estudos",
-    completed: true,
-  },
-];
+
 
 const priorityStyles = {
   Alta: {
@@ -96,7 +45,7 @@ const filters: Filter[] = [
 ];
 
 export default function TarefasPage() {
-  const [tasks, setTasks] = useState<Task[]>(initialTasks);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [filter, setFilter] = useState<Filter>("Todas");
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
@@ -114,17 +63,8 @@ export default function TarefasPage() {
       return;
     }
 
-    setTasks((currentTasks) => {
-      const savedIds = new Set(
-        savedTasks.map((task) => task.id)
-      );
-
-      const exampleTasks = currentTasks.filter(
-        (task) => !savedIds.has(task.id)
-      );
-
-      return [...exampleTasks, ...savedTasks];
-    });
+    setTasks(savedTasks);
+    
   } catch {
     console.error(
       "Não foi possível carregar as tarefas salvas."
