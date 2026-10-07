@@ -197,9 +197,8 @@ function addMinutesToTime(
 export default function AgendaPage() {
   const router = useRouter();
   const [selectedDate, setSelectedDate] = useState(
-    new Date(2026, 9, 4)
-  );
-
+  () => new Date()
+);
   const [view, setView] = useState<"Semana" | "Dia" | "Mês">("Semana");
 
   const [activities, setActivities] =
@@ -363,7 +362,7 @@ export default function AgendaPage() {
               </button>
 
               <button
-                onClick={() => setSelectedDate(new Date(2026, 9, 4))}
+                onClick={() => setSelectedDate(new Date())}
                 className="rounded-xl border border-zinc-700 px-4 py-2 text-sm transition hover:bg-zinc-800"
               >
                 Hoje

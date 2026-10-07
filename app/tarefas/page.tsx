@@ -260,15 +260,23 @@ export default function TarefasPage() {
           </p>
 
           <div className="mt-2 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-            <div>
-              <h1 className="text-3xl font-semibold tracking-tight">
-                Tarefas
-              </h1>
+           <div>
+             <h1 className="text-3xl font-semibold tracking-tight">
+               Tarefas
+             </h1>
 
-              <p className="mt-2 text-sm text-zinc-400">
+             <p className="mt-2 text-sm text-zinc-400">
                 Tudo que precisa ser feito, sem perder o controle.
-              </p>
-            </div>
+             </p>
+
+             <a
+               href="/planejamento"
+               className="mt-4 inline-flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm font-medium text-zinc-200 transition hover:border-zinc-600 hover:bg-zinc-800"
+              >
+            <span>✦</span>
+               Planejamento
+             </a>
+          </div>
 
             <div className="flex gap-2">
               <div className="rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3">

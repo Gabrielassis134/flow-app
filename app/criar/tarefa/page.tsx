@@ -53,6 +53,12 @@ export default function NovaTarefaPage() {
   const [startHour, setStartHour] = useState(8);
   const [startMinute, setStartMinute] = useState(0);
 
+  const [conflict, setConflict] = useState<{
+  title: string;
+  start: string;
+  end: string;
+} | null>(null);
+
   const currentYear = today.getFullYear();
 
   const maxDay = new Date(
@@ -97,36 +103,187 @@ export default function NovaTarefaPage() {
     }
   }
 
-  function handleSave() {
-    if (!title.trim()) {
-      return;
+  function timeToMinutes(time: string) {
+  const [hour, minute] = time.split(":").map(Number);
+  return hour * 60 + minute;
+}
+
+function minutesToTime(minutes: number) {
+  const hour = Math.floor(minutes / 60);
+  const minute = minutes % 60;
+
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+function overlaps(
+  startA: string,
+  endA: string,
+  startB: string,
+  endB: string
+) {
+  const startAMinutes = timeToMinutes(startA);
+  const endAMinutes = timeToMinutes(endA);
+  const startBMinutes = timeToMinutes(startB);
+  const endBMinutes = timeToMinutes(endB);
+
+  return (
+    startAMinutes < endBMinutes &&
+    endAMinutes > startBMinutes
+  );
+}
+
+function findConflict(
+  date: string,
+  startTime: string,
+  durationMinutes: number
+) {
+  const endTime = minutesToTime(
+    timeToMinutes(startTime) + durationMinutes
+  );
+
+  const savedActivities =
+    localStorage.getItem("flow-activities");
+
+  if (savedActivities) {
+    try {
+      const activities = JSON.parse(savedActivities);
+
+      const conflict = activities.find(
+        (activity: {
+          date: string;
+          start: string;
+          end: string;
+          title: string;
+        }) =>
+          activity.date === date &&
+          overlaps(
+            startTime,
+            endTime,
+            activity.start,
+            activity.end
+          )
+      );
+
+      if (conflict) {
+        return {
+          title: conflict.title,
+          start: conflict.start,
+          end: conflict.end,
+        };
+      }
+    } catch {
+      // Ignora dados inválidos
     }
+  }
 
-    if (isBeforeToday) {
-      return;
+  const savedTasks =
+    localStorage.getItem("flow-tasks");
+
+  if (savedTasks) {
+    try {
+      const tasks = JSON.parse(savedTasks);
+
+      const conflict = tasks.find(
+        (task: {
+          date: string;
+          startTime: string | null;
+          durationMinutes: number;
+          title: string;
+          completed: boolean;
+          hasTime: boolean;
+        }) => {
+          if (
+            task.completed ||
+            !task.hasTime ||
+            !task.startTime ||
+            !task.durationMinutes
+          ) {
+            return false;
+          }
+
+          if (task.date !== date) {
+            return false;
+          }
+
+          const taskEndTime = minutesToTime(
+            timeToMinutes(task.startTime) +
+              task.durationMinutes
+          );
+
+          return overlaps(
+            startTime,
+            endTime,
+            task.startTime,
+            taskEndTime
+          );
+        }
+      );
+
+      if (conflict) {
+        return {
+          title: conflict.title,
+          start: conflict.startTime,
+          end: minutesToTime(
+            timeToMinutes(conflict.startTime) +
+              conflict.durationMinutes
+          ),
+        };
+      }
+    } catch {
+      // Ignora dados inválidos
     }
+  }
 
-    if (
-      durationHours === 0 &&
-      durationMinutes === 0
-    ) {
-      return;
-    }
+  return null;
+}
 
-    const date =
-      `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+ function handleSave(forceSave = false) {
+  if (!title.trim()) {
+    return;
+  }
 
-    const startTime = hasTime
-      ? `${String(startHour).padStart(2, "0")}:${String(startMinute).padStart(2, "0")}`
-      : null;
+  if (isBeforeToday) {
+    return;
+  }
+
+  if (
+    durationHours === 0 &&
+    durationMinutes === 0
+  ) {
+    return;
+  }
+
+  const date =
+    `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
+  const startTime = hasTime
+    ? `${String(startHour).padStart(2, "0")}:${String(startMinute).padStart(2, "0")}`
+    : null;
+
+  const taskDurationMinutes =
+  durationHours * 60 + durationMinutes;
+
+  
+
+  if (hasTime && startTime && !forceSave) {
+  const foundConflict = findConflict(
+    date,
+    startTime,
+    taskDurationMinutes
+  );
+
+  if (foundConflict) {
+    setConflict(foundConflict);
+    return;
+  }
+}
 
     const newTask = {
-      id: Date.now(),
-      title: title.trim(),
-      description: description.trim(),
-      date,
-      durationMinutes:
-        durationHours * 60 + durationMinutes,
+  id: Date.now(),
+  title: title.trim(),
+  description: description.trim(),
+  date,
+  durationMinutes: taskDurationMinutes,
       duration:
         `${durationHours}h ${String(durationMinutes).padStart(2, "0")}min`,
       priority,
@@ -568,7 +725,7 @@ export default function NovaTarefaPage() {
 
           <button
             type="button"
-            onClick={handleSave}
+            onClick={() => handleSave()}
             disabled={
               !title.trim() ||
               isBeforeToday ||
@@ -582,6 +739,62 @@ export default function NovaTarefaPage() {
 
         </section>
       </div>
+
+            {conflict && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-md rounded-3xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-400/10 text-xl text-amber-300">
+              !
+            </div>
+
+            <h2 className="mt-5 text-xl font-semibold">
+              Esse horário já está ocupado
+            </h2>
+
+            <p className="mt-2 text-sm leading-6 text-zinc-400">
+              A tarefa que você está criando entra em conflito
+              com uma atividade já existente.
+            </p>
+
+            <div className="mt-5 rounded-2xl bg-zinc-950 p-4">
+              <p className="font-medium text-zinc-200">
+                {conflict.title}
+              </p>
+
+              <p className="mt-1 text-sm text-zinc-500">
+                {conflict.start} – {conflict.end}
+              </p>
+            </div>
+
+            <p className="mt-4 text-sm text-zinc-400">
+              Você pode manter a tarefa nesse horário mesmo
+              assim ou voltar e escolher outro horário.
+            </p>
+
+            <div className="mt-6 flex flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                onClick={() => setConflict(null)}
+                className="flex-1 rounded-xl border border-zinc-700 px-4 py-3 text-sm font-medium text-zinc-300 transition hover:bg-zinc-800"
+              >
+                Trocar horário
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setConflict(null);
+                  handleSave(true);
+                }}
+                className="flex-1 rounded-xl bg-zinc-100 px-4 py-3 text-sm font-semibold text-zinc-950 transition hover:bg-white"
+              >
+                Manter mesmo assim
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </main>
   );
 }
