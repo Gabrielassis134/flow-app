@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import BottomNav from "./components/BottomNav";
-import ThemeController from "./components/ThemeController";
+import LayoutShell from "./components/LayoutShell";
 
 export const metadata: Metadata = {
   title: "Flow",
@@ -14,11 +14,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt-BR" suppressHydrationWarning>
-      <body className="pb-24">
-        <ThemeController />
-        {children}
-        <BottomNav />
+    <html lang="pt-BR">
+      <body>
+        <LayoutShell>{children}</LayoutShell>
       </body>
     </html>
   );
