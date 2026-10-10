@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Activity, getSavedActivities } from "./lib/activities";
+import { supabase } from "./lib/supabase";
 
 type Task = {
   id: number;
@@ -52,7 +54,6 @@ function getTaskEnd(task: Task) {
   }
 
   const durationMinutes = Number(task.durationMinutes) || 0;
-
   const startMinutes = timeToMinutes(task.startTime);
 
   return minutesToTime(startMinutes + durationMinutes);
@@ -120,9 +121,7 @@ function getGreeting(hour: number) {
 
 function getTimeUntil(start: string, now: Date) {
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
-
   const startMinutes = timeToMinutes(start);
-
   const difference = startMinutes - currentMinutes;
 
   if (difference <= 0) {
@@ -144,11 +143,53 @@ function getTimeUntil(start: string, now: Date) {
 }
 
 export default function Home() {
+  const router = useRouter();
+
+  const [checkingAuth, setCheckingAuth] = useState(true);
   const [activities, setActivities] = useState<Activity[]>([]);
-
   const [tasks, setTasks] = useState<Task[]>([]);
-
   const [now, setNow] = useState<Date | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    async function checkSession() {
+      try {
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
+
+        if (!active) return;
+
+        if (error || !session) {
+          router.replace("/login");
+          return;
+        }
+
+        setCheckingAuth(false);
+      } catch {
+        if (active) {
+          router.replace("/login");
+        }
+      }
+    }
+
+    void checkSession();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        router.replace("/login");
+      }
+    });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, [router]);
 
   function loadData() {
     setActivities(getSavedActivities());
@@ -158,7 +199,6 @@ export default function Home() {
     if (savedTasks) {
       try {
         const parsedTasks = JSON.parse(savedTasks);
-
         setTasks(Array.isArray(parsedTasks) ? parsedTasks : []);
       } catch {
         setTasks([]);
@@ -169,6 +209,8 @@ export default function Home() {
   }
 
   useEffect(() => {
+    if (checkingAuth) return;
+
     const currentDate = new Date();
 
     setNow(currentDate);
@@ -188,7 +230,7 @@ export default function Home() {
       window.clearInterval(interval);
       window.removeEventListener("storage", handleStorage);
     };
-  }, []);
+  }, [checkingAuth]);
 
   const today = useMemo(() => {
     if (!now) {
@@ -214,7 +256,6 @@ export default function Home() {
         }
 
         const taskDate = task.date || task.deadline;
-
         return taskDate === todayKey;
       })
       .sort((a, b) => {
@@ -281,7 +322,6 @@ export default function Home() {
       .filter((task) => !task.completed)
       .sort((a, b) => {
         const dateA = a.date || a.deadline || "9999-12-31";
-
         const dateB = b.date || b.deadline || "9999-12-31";
 
         return dateA.localeCompare(dateB);
@@ -290,6 +330,14 @@ export default function Home() {
   }, [tasks]);
 
   const greeting = now ? getGreeting(now.getHours()) : "Olá";
+
+  if (checkingAuth) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-zinc-950 text-zinc-100">
+        <p className="text-sm text-zinc-400">Verificando sua sessão...</p>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-100">
