@@ -54,23 +54,18 @@ export default function NovaTarefaPage() {
   const [startMinute, setStartMinute] = useState(0);
 
   const [conflict, setConflict] = useState<{
-  title: string;
-  start: string;
-  end: string;
-} | null>(null);
+    title: string;
+    start: string;
+    end: string;
+  } | null>(null);
 
   const currentYear = today.getFullYear();
 
-  const maxDay = new Date(
-    year,
-    month + 1,
-    0
-  ).getDate();
+  const maxDay = new Date(year, month + 1, 0).getDate();
 
   const isBeforeToday =
     year < currentYear ||
-    (year === currentYear &&
-      month < today.getMonth()) ||
+    (year === currentYear && month < today.getMonth()) ||
     (year === currentYear &&
       month === today.getMonth() &&
       day < today.getDate());
@@ -78,11 +73,7 @@ export default function NovaTarefaPage() {
   function changeMonth(value: number) {
     setMonth(value);
 
-    const newMaxDay = new Date(
-      year,
-      value + 1,
-      0
-    ).getDate();
+    const newMaxDay = new Date(year, value + 1, 0).getDate();
 
     if (day > newMaxDay) {
       setDay(newMaxDay);
@@ -92,11 +83,7 @@ export default function NovaTarefaPage() {
   function changeYear(value: number) {
     setYear(value);
 
-    const newMaxDay = new Date(
-      value,
-      month + 1,
-      0
-    ).getDate();
+    const newMaxDay = new Date(value, month + 1, 0).getDate();
 
     if (day > newMaxDay) {
       setDay(newMaxDay);
@@ -104,188 +91,157 @@ export default function NovaTarefaPage() {
   }
 
   function timeToMinutes(time: string) {
-  const [hour, minute] = time.split(":").map(Number);
-  return hour * 60 + minute;
-}
-
-function minutesToTime(minutes: number) {
-  const hour = Math.floor(minutes / 60);
-  const minute = minutes % 60;
-
-  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
-}
-
-function overlaps(
-  startA: string,
-  endA: string,
-  startB: string,
-  endB: string
-) {
-  const startAMinutes = timeToMinutes(startA);
-  const endAMinutes = timeToMinutes(endA);
-  const startBMinutes = timeToMinutes(startB);
-  const endBMinutes = timeToMinutes(endB);
-
-  return (
-    startAMinutes < endBMinutes &&
-    endAMinutes > startBMinutes
-  );
-}
-
-function findConflict(
-  date: string,
-  startTime: string,
-  durationMinutes: number
-) {
-  const endTime = minutesToTime(
-    timeToMinutes(startTime) + durationMinutes
-  );
-
-  const savedActivities =
-    localStorage.getItem("flow-activities");
-
-  if (savedActivities) {
-    try {
-      const activities = JSON.parse(savedActivities);
-
-      const conflict = activities.find(
-        (activity: {
-          date: string;
-          start: string;
-          end: string;
-          title: string;
-        }) =>
-          activity.date === date &&
-          overlaps(
-            startTime,
-            endTime,
-            activity.start,
-            activity.end
-          )
-      );
-
-      if (conflict) {
-        return {
-          title: conflict.title,
-          start: conflict.start,
-          end: conflict.end,
-        };
-      }
-    } catch {
-      // Ignora dados inválidos
-    }
+    const [hour, minute] = time.split(":").map(Number);
+    return hour * 60 + minute;
   }
 
-  const savedTasks =
-    localStorage.getItem("flow-tasks");
+  function minutesToTime(minutes: number) {
+    const hour = Math.floor(minutes / 60);
+    const minute = minutes % 60;
 
-  if (savedTasks) {
-    try {
-      const tasks = JSON.parse(savedTasks);
-
-      const conflict = tasks.find(
-        (task: {
-          date: string;
-          startTime: string | null;
-          durationMinutes: number;
-          title: string;
-          completed: boolean;
-          hasTime: boolean;
-        }) => {
-          if (
-            task.completed ||
-            !task.hasTime ||
-            !task.startTime ||
-            !task.durationMinutes
-          ) {
-            return false;
-          }
-
-          if (task.date !== date) {
-            return false;
-          }
-
-          const taskEndTime = minutesToTime(
-            timeToMinutes(task.startTime) +
-              task.durationMinutes
-          );
-
-          return overlaps(
-            startTime,
-            endTime,
-            task.startTime,
-            taskEndTime
-          );
-        }
-      );
-
-      if (conflict) {
-        return {
-          title: conflict.title,
-          start: conflict.startTime,
-          end: minutesToTime(
-            timeToMinutes(conflict.startTime) +
-              conflict.durationMinutes
-          ),
-        };
-      }
-    } catch {
-      // Ignora dados inválidos
-    }
+    return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
   }
 
-  return null;
-}
-
- function handleSave(forceSave = false) {
-  if (!title.trim()) {
-    return;
-  }
-
-  if (isBeforeToday) {
-    return;
-  }
-
-  if (
-    durationHours === 0 &&
-    durationMinutes === 0
+  function overlaps(
+    startA: string,
+    endA: string,
+    startB: string,
+    endB: string,
   ) {
-    return;
+    const startAMinutes = timeToMinutes(startA);
+    const endAMinutes = timeToMinutes(endA);
+    const startBMinutes = timeToMinutes(startB);
+    const endBMinutes = timeToMinutes(endB);
+
+    return startAMinutes < endBMinutes && endAMinutes > startBMinutes;
   }
 
-  const date =
-    `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+  function findConflict(
+    date: string,
+    startTime: string,
+    durationMinutes: number,
+  ) {
+    const endTime = minutesToTime(timeToMinutes(startTime) + durationMinutes);
 
-  const startTime = hasTime
-    ? `${String(startHour).padStart(2, "0")}:${String(startMinute).padStart(2, "0")}`
-    : null;
+    const savedActivities = localStorage.getItem("flow-activities");
 
-  const taskDurationMinutes =
-  durationHours * 60 + durationMinutes;
+    if (savedActivities) {
+      try {
+        const activities = JSON.parse(savedActivities);
 
-  
+        const conflict = activities.find(
+          (activity: {
+            date: string;
+            start: string;
+            end: string;
+            title: string;
+          }) =>
+            activity.date === date &&
+            overlaps(startTime, endTime, activity.start, activity.end),
+        );
 
-  if (hasTime && startTime && !forceSave) {
-  const foundConflict = findConflict(
-    date,
-    startTime,
-    taskDurationMinutes
-  );
+        if (conflict) {
+          return {
+            title: conflict.title,
+            start: conflict.start,
+            end: conflict.end,
+          };
+        }
+      } catch {
+        // Ignora dados inválidos
+      }
+    }
 
-  if (foundConflict) {
-    setConflict(foundConflict);
-    return;
+    const savedTasks = localStorage.getItem("flow-tasks");
+
+    if (savedTasks) {
+      try {
+        const tasks = JSON.parse(savedTasks);
+
+        const conflict = tasks.find(
+          (task: {
+            date: string;
+            startTime: string | null;
+            durationMinutes: number;
+            title: string;
+            completed: boolean;
+            hasTime: boolean;
+          }) => {
+            if (
+              task.completed ||
+              !task.hasTime ||
+              !task.startTime ||
+              !task.durationMinutes
+            ) {
+              return false;
+            }
+
+            if (task.date !== date) {
+              return false;
+            }
+
+            const taskEndTime = minutesToTime(
+              timeToMinutes(task.startTime) + task.durationMinutes,
+            );
+
+            return overlaps(startTime, endTime, task.startTime, taskEndTime);
+          },
+        );
+
+        if (conflict) {
+          return {
+            title: conflict.title,
+            start: conflict.startTime,
+            end: minutesToTime(
+              timeToMinutes(conflict.startTime) + conflict.durationMinutes,
+            ),
+          };
+        }
+      } catch {
+        // Ignora dados inválidos
+      }
+    }
+
+    return null;
   }
-}
+
+  function handleSave(forceSave = false) {
+    if (!title.trim()) {
+      return;
+    }
+
+    if (isBeforeToday) {
+      return;
+    }
+
+    if (durationHours === 0 && durationMinutes === 0) {
+      return;
+    }
+
+    const date = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
+    const startTime = hasTime
+      ? `${String(startHour).padStart(2, "0")}:${String(startMinute).padStart(2, "0")}`
+      : null;
+
+    const taskDurationMinutes = durationHours * 60 + durationMinutes;
+
+    if (hasTime && startTime && !forceSave) {
+      const foundConflict = findConflict(date, startTime, taskDurationMinutes);
+
+      if (foundConflict) {
+        setConflict(foundConflict);
+        return;
+      }
+    }
 
     const newTask = {
-  id: Date.now(),
-  title: title.trim(),
-  description: description.trim(),
-  date,
-  durationMinutes: taskDurationMinutes,
-      duration:
-        `${durationHours}h ${String(durationMinutes).padStart(2, "0")}min`,
+      id: Date.now(),
+      title: title.trim(),
+      description: description.trim(),
+      date,
+      durationMinutes: taskDurationMinutes,
+      duration: `${durationHours}h ${String(durationMinutes).padStart(2, "0")}min`,
       priority,
       category,
       hasTime,
@@ -293,8 +249,7 @@ function findConflict(
       completed: false,
     };
 
-    const saved =
-      localStorage.getItem("flow-tasks");
+    const saved = localStorage.getItem("flow-tasks");
 
     let currentTasks = [];
 
@@ -308,10 +263,7 @@ function findConflict(
 
     localStorage.setItem(
       "flow-tasks",
-      JSON.stringify([
-        ...currentTasks,
-        newTask,
-      ])
+      JSON.stringify([...currentTasks, newTask]),
     );
 
     router.push("/tarefas");
@@ -320,7 +272,6 @@ function findConflict(
   return (
     <main className="min-h-screen bg-zinc-950 pb-32 text-zinc-100">
       <div className="mx-auto max-w-2xl px-6 py-8">
-
         {/* CABEÇALHO */}
 
         <header>
@@ -331,9 +282,7 @@ function findConflict(
             ← Voltar
           </button>
 
-          <p className="mt-8 text-sm text-zinc-500">
-            Nova criação
-          </p>
+          <p className="mt-8 text-sm text-zinc-500">Nova criação</p>
 
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">
             Nova tarefa
@@ -347,7 +296,6 @@ function findConflict(
         {/* FORMULÁRIO */}
 
         <section className="mt-8 rounded-3xl border border-zinc-800 bg-zinc-900/70 p-6">
-
           {/* NOME */}
 
           <div>
@@ -358,9 +306,7 @@ function findConflict(
             <input
               type="text"
               value={title}
-              onChange={(event) =>
-                setTitle(event.target.value)
-              }
+              onChange={(event) => setTitle(event.target.value)}
               placeholder="Ex.: Estudar Física"
               className="mt-2 w-full rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm outline-none placeholder:text-zinc-600 focus:border-zinc-600"
             />
@@ -371,7 +317,6 @@ function findConflict(
           <div className="mt-5">
             <label className="text-sm font-medium text-zinc-300">
               Descrição
-
               <span className="ml-2 text-xs font-normal text-zinc-600">
                 opcional
               </span>
@@ -379,9 +324,7 @@ function findConflict(
 
             <textarea
               value={description}
-              onChange={(event) =>
-                setDescription(event.target.value)
-              }
+              onChange={(event) => setDescription(event.target.value)}
               placeholder="Ex.: Revisar as leis de Newton"
               rows={3}
               className="mt-2 w-full resize-none rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm outline-none placeholder:text-zinc-600 focus:border-zinc-600"
@@ -397,15 +340,11 @@ function findConflict(
 
             <select
               value={category}
-              onChange={(event) =>
-                setCategory(event.target.value)
-              }
+              onChange={(event) => setCategory(event.target.value)}
               className="mt-2 w-full rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm outline-none focus:border-zinc-600"
             >
               {categories.map((item) => (
-                <option key={item}>
-                  {item}
-                </option>
+                <option key={item}>{item}</option>
               ))}
             </select>
           </div>
@@ -418,22 +357,18 @@ function findConflict(
             </label>
 
             <div className="mt-2 grid grid-cols-3 gap-2">
-              {(
-                ["Alta", "Média", "Baixa"] as Priority[]
-              ).map((item) => (
+              {(["Alta", "Média", "Baixa"] as Priority[]).map((item) => (
                 <button
                   key={item}
                   type="button"
-                  onClick={() =>
-                    setPriority(item)
-                  }
+                  onClick={() => setPriority(item)}
                   className={`rounded-2xl border px-3 py-3 text-sm transition ${
                     priority === item
                       ? item === "Alta"
                         ? "border-rose-400 bg-rose-400/10 text-rose-300"
                         : item === "Média"
-                        ? "border-amber-400 bg-amber-400/10 text-amber-300"
-                        : "border-emerald-400 bg-emerald-400/10 text-emerald-300"
+                          ? "border-amber-400 bg-amber-400/10 text-amber-300"
+                          : "border-emerald-400 bg-emerald-400/10 text-emerald-300"
                       : "border-zinc-800 bg-zinc-950 text-zinc-500 hover:border-zinc-700"
                   }`}
                 >
@@ -446,38 +381,24 @@ function findConflict(
           {/* PRAZO */}
 
           <div className="mt-5">
-            <label className="text-sm font-medium text-zinc-300">
-              Prazo
-            </label>
+            <label className="text-sm font-medium text-zinc-300">Prazo</label>
 
             <div className="mt-2 grid grid-cols-[0.8fr_1.5fr_1fr] gap-2">
-
               <select
                 value={day}
-                onChange={(event) =>
-                  setDay(Number(event.target.value))
-                }
+                onChange={(event) => setDay(Number(event.target.value))}
                 className="rounded-2xl border border-zinc-800 bg-zinc-950 px-3 py-3 text-sm outline-none focus:border-zinc-600"
               >
-                {Array.from(
-                  { length: maxDay },
-                  (_, index) => index + 1
-                )
+                {Array.from({ length: maxDay }, (_, index) => index + 1)
                   .filter((item) => {
-                    if (
-                      year === currentYear &&
-                      month === today.getMonth()
-                    ) {
+                    if (year === currentYear && month === today.getMonth()) {
                       return item >= today.getDate();
                     }
 
                     return true;
                   })
                   .map((item) => (
-                    <option
-                      key={item}
-                      value={item}
-                    >
+                    <option key={item} value={item}>
                       {String(item).padStart(2, "0")}
                     </option>
                   ))}
@@ -485,24 +406,15 @@ function findConflict(
 
               <select
                 value={month}
-                onChange={(event) =>
-                  changeMonth(
-                    Number(event.target.value)
-                  )
-                }
+                onChange={(event) => changeMonth(Number(event.target.value))}
                 className="rounded-2xl border border-zinc-800 bg-zinc-950 px-3 py-3 text-sm outline-none focus:border-zinc-600"
               >
                 {months.map((item, index) => {
                   const disabled =
-                    year === currentYear &&
-                    index < today.getMonth();
+                    year === currentYear && index < today.getMonth();
 
                   return (
-                    <option
-                      key={item}
-                      value={index}
-                      disabled={disabled}
-                    >
+                    <option key={item} value={index} disabled={disabled}>
                       {item}
                     </option>
                   );
@@ -511,27 +423,18 @@ function findConflict(
 
               <select
                 value={year}
-                onChange={(event) =>
-                  changeYear(
-                    Number(event.target.value)
-                  )
-                }
+                onChange={(event) => changeYear(Number(event.target.value))}
                 className="rounded-2xl border border-zinc-800 bg-zinc-950 px-3 py-3 text-sm outline-none focus:border-zinc-600"
               >
                 {Array.from(
                   { length: 6 },
-                  (_, index) =>
-                    currentYear + index
+                  (_, index) => currentYear + index,
                 ).map((item) => (
-                  <option
-                    key={item}
-                    value={item}
-                  >
+                  <option key={item} value={item}>
                     {item}
                   </option>
                 ))}
               </select>
-
             </div>
 
             {isBeforeToday && (
@@ -549,28 +452,21 @@ function findConflict(
             </label>
 
             <div className="mt-2 grid grid-cols-2 gap-3">
-
               <div>
                 <select
                   value={durationHours}
                   onChange={(event) =>
-                    setDurationHours(
-                      Number(event.target.value)
-                    )
+                    setDurationHours(Number(event.target.value))
                   }
                   className="w-full rounded-2xl border border-zinc-800 bg-zinc-950 px-3 py-3 text-sm outline-none focus:border-zinc-600"
                 >
-                  {Array.from(
-                    { length: 13 },
-                    (_, index) => index
-                  ).map((hour) => (
-                    <option
-                      key={hour}
-                      value={hour}
-                    >
-                      {hour}h
-                    </option>
-                  ))}
+                  {Array.from({ length: 13 }, (_, index) => index).map(
+                    (hour) => (
+                      <option key={hour} value={hour}>
+                        {hour}h
+                      </option>
+                    ),
+                  )}
                 </select>
 
                 <p className="mt-1 text-center text-[11px] text-zinc-600">
@@ -582,51 +478,34 @@ function findConflict(
                 <select
                   value={durationMinutes}
                   onChange={(event) =>
-                    setDurationMinutes(
-                      Number(event.target.value)
-                    )
+                    setDurationMinutes(Number(event.target.value))
                   }
                   className="w-full rounded-2xl border border-zinc-800 bg-zinc-950 px-3 py-3 text-sm outline-none focus:border-zinc-600"
                 >
-                  {[0, 15, 30, 45].map(
-                    (minute) => (
-                      <option
-                        key={minute}
-                        value={minute}
-                      >
-                        {String(minute).padStart(
-                          2,
-                          "0"
-                        )}{" "}
-                        min
-                      </option>
-                    )
-                  )}
+                  {[0, 15, 30, 45].map((minute) => (
+                    <option key={minute} value={minute}>
+                      {String(minute).padStart(2, "0")} min
+                    </option>
+                  ))}
                 </select>
 
                 <p className="mt-1 text-center text-[11px] text-zinc-600">
                   Minutos
                 </p>
               </div>
-
             </div>
           </div>
 
           {/* HORÁRIO */}
 
           <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4">
-
             <button
               type="button"
-              onClick={() =>
-                setHasTime(!hasTime)
-              }
+              onClick={() => setHasTime(!hasTime)}
               className="flex w-full items-center justify-between text-left"
             >
               <div>
-                <p className="text-sm font-medium">
-                  Definir horário
-                </p>
+                <p className="text-sm font-medium">Definir horário</p>
 
                 <p className="mt-1 text-xs text-zinc-500">
                   {hasTime
@@ -637,16 +516,12 @@ function findConflict(
 
               <div
                 className={`flex h-6 w-11 items-center rounded-full p-1 transition ${
-                  hasTime
-                    ? "bg-sky-400"
-                    : "bg-zinc-800"
+                  hasTime ? "bg-sky-400" : "bg-zinc-800"
                 }`}
               >
                 <span
                   className={`h-4 w-4 rounded-full transition ${
-                    hasTime
-                      ? "translate-x-5 bg-zinc-950"
-                      : "bg-zinc-500"
+                    hasTime ? "translate-x-5 bg-zinc-950" : "bg-zinc-500"
                   }`}
                 />
               </div>
@@ -654,71 +529,45 @@ function findConflict(
 
             {hasTime && (
               <div className="mt-4 grid grid-cols-2 gap-3">
-
                 <div>
-                  <label className="text-xs text-zinc-500">
-                    Hora
-                  </label>
+                  <label className="text-xs text-zinc-500">Hora</label>
 
                   <select
                     value={startHour}
                     onChange={(event) =>
-                      setStartHour(
-                        Number(event.target.value)
-                      )
+                      setStartHour(Number(event.target.value))
                     }
                     className="mt-1 w-full rounded-2xl border border-zinc-800 bg-zinc-900 px-3 py-3 text-sm outline-none focus:border-zinc-600"
                   >
-                    {Array.from(
-                      { length: 24 },
-                      (_, index) => index
-                    ).map((hour) => (
-                      <option
-                        key={hour}
-                        value={hour}
-                      >
-                        {String(hour).padStart(
-                          2,
-                          "0"
-                        )}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-xs text-zinc-500">
-                    Minuto
-                  </label>
-
-                  <select
-                    value={startMinute}
-                    onChange={(event) =>
-                      setStartMinute(
-                        Number(event.target.value)
-                      )
-                    }
-                    className="mt-1 w-full rounded-2xl border border-zinc-800 bg-zinc-900 px-3 py-3 text-sm outline-none focus:border-zinc-600"
-                  >
-                    {[0, 15, 30, 45].map(
-                      (minute) => (
-                        <option
-                          key={minute}
-                          value={minute}
-                        >
-                          {String(minute).padStart(
-                            2,
-                            "0"
-                          )}
+                    {Array.from({ length: 24 }, (_, index) => index).map(
+                      (hour) => (
+                        <option key={hour} value={hour}>
+                          {String(hour).padStart(2, "0")}
                         </option>
-                      )
+                      ),
                     )}
                   </select>
                 </div>
 
+                <div>
+                  <label className="text-xs text-zinc-500">Minuto</label>
+
+                  <select
+                    value={startMinute}
+                    onChange={(event) =>
+                      setStartMinute(Number(event.target.value))
+                    }
+                    className="mt-1 w-full rounded-2xl border border-zinc-800 bg-zinc-900 px-3 py-3 text-sm outline-none focus:border-zinc-600"
+                  >
+                    {[0, 15, 30, 45].map((minute) => (
+                      <option key={minute} value={minute}>
+                        {String(minute).padStart(2, "0")}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             )}
-
           </div>
 
           {/* SALVAR */}
@@ -729,18 +578,16 @@ function findConflict(
             disabled={
               !title.trim() ||
               isBeforeToday ||
-              (durationHours === 0 &&
-                durationMinutes === 0)
+              (durationHours === 0 && durationMinutes === 0)
             }
             className="mt-8 w-full rounded-2xl bg-zinc-100 px-4 py-3 font-medium text-zinc-950 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
           >
             Salvar tarefa
           </button>
-
         </section>
       </div>
 
-            {conflict && (
+      {conflict && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
           <div className="w-full max-w-md rounded-3xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl">
             <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-400/10 text-xl text-amber-300">
@@ -752,14 +599,12 @@ function findConflict(
             </h2>
 
             <p className="mt-2 text-sm leading-6 text-zinc-400">
-              A tarefa que você está criando entra em conflito
-              com uma atividade já existente.
+              A tarefa que você está criando entra em conflito com uma atividade
+              já existente.
             </p>
 
             <div className="mt-5 rounded-2xl bg-zinc-950 p-4">
-              <p className="font-medium text-zinc-200">
-                {conflict.title}
-              </p>
+              <p className="font-medium text-zinc-200">{conflict.title}</p>
 
               <p className="mt-1 text-sm text-zinc-500">
                 {conflict.start} – {conflict.end}
@@ -767,8 +612,8 @@ function findConflict(
             </div>
 
             <p className="mt-4 text-sm text-zinc-400">
-              Você pode manter a tarefa nesse horário mesmo
-              assim ou voltar e escolher outro horário.
+              Você pode manter a tarefa nesse horário mesmo assim ou voltar e
+              escolher outro horário.
             </p>
 
             <div className="mt-6 flex flex-col gap-2 sm:flex-row">
@@ -794,7 +639,6 @@ function findConflict(
           </div>
         </div>
       )}
-
     </main>
   );
 }
