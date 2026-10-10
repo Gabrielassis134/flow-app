@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f4f5f7;
+  --foreground: #2f3440;
 }
 
 @theme inline {
@@ -12,15 +12,299 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html[data-theme="dark"] {
+  --background: #09090b;
+  --foreground: #f4f4f5;
+}
+
+html[data-theme="light"] {
+  --background: #f4f5f7;
+  --foreground: #2f3440;
+}
+
+html,
+body {
+  min-height: 100%;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+/* =========================================================
+   TEMA CLARO
+========================================================= */
+
+/* Fundos principais */
+
+html[data-theme="light"] [class~="bg-zinc-950"] {
+  background-color: #f4f5f7 !important;
+}
+
+html[data-theme="light"] [class~="bg-zinc-900"] {
+  background-color: #ffffff !important;
+}
+
+html[data-theme="light"] [class~="bg-zinc-800"] {
+  background-color: #edf0f4 !important;
+}
+
+html[data-theme="light"] [class~="bg-zinc-700"] {
+  background-color: #e3e7ec !important;
+}
+
+html[data-theme="light"] [class~="bg-zinc-100"] {
+  background-color: #eaf2fb !important;
+}
+
+/* Fundos com transparência */
+
+html[data-theme="light"] [class*="bg-zinc-950/"] {
+  background-color: #f4f5f7 !important;
+}
+
+html[data-theme="light"] [class*="bg-zinc-900/"] {
+  background-color: #ffffff !important;
+}
+
+html[data-theme="light"] [class*="bg-zinc-800/"] {
+  background-color: #edf0f4 !important;
+}
+
+/* =========================================================
+   TEXTOS
+========================================================= */
+
+html[data-theme="light"] [class~="text-zinc-100"] {
+  color: #2f3440 !important;
+}
+
+html[data-theme="light"] [class~="text-zinc-200"] {
+  color: #39404d !important;
+}
+
+html[data-theme="light"] [class~="text-zinc-300"] {
+  color: #4e5665 !important;
+}
+
+html[data-theme="light"] [class~="text-zinc-400"] {
+  color: #687180 !important;
+}
+
+html[data-theme="light"] [class~="text-zinc-500"] {
+  color: #7b8492 !important;
+}
+
+html[data-theme="light"] [class~="text-zinc-600"] {
+  color: #8b94a2 !important;
+}
+
+html[data-theme="light"] [class~="text-zinc-700"] {
+  color: #626b79 !important;
+}
+
+html[data-theme="light"] [class~="text-zinc-950"] {
+  color: #354052 !important;
+}
+
+html[data-theme="light"] [class~="text-white"] {
+  color: #2f3440 !important;
+}
+
+/* =========================================================
+   BORDAS
+========================================================= */
+
+html[data-theme="light"] [class~="border-zinc-800"] {
+  border-color: #dde1e7 !important;
+}
+
+html[data-theme="light"] [class~="border-zinc-700"] {
+  border-color: #d1d6de !important;
+}
+
+html[data-theme="light"] [class~="border-zinc-600"] {
+  border-color: #c1c8d2 !important;
+}
+
+/* Divisórias */
+
+html[data-theme="light"]
+  [class~="divide-zinc-800"]
+  > :not([hidden])
+  ~ :not([hidden]) {
+  border-color: #e3e6eb !important;
+}
+
+/* =========================================================
+   HOVER
+========================================================= */
+
+html[data-theme="light"]
+  [class~="hover:bg-zinc-900"]:hover {
+  background-color: #f8f9fb !important;
+}
+
+html[data-theme="light"]
+  [class~="hover:bg-zinc-800"]:hover {
+  background-color: #e7ebf0 !important;
+}
+
+html[data-theme="light"]
+  [class~="hover:bg-zinc-800/80"]:hover {
+  background-color: #e7ebf0 !important;
+}
+
+html[data-theme="light"]
+  [class~="hover:bg-zinc-800/70"]:hover {
+  background-color: #e7ebf0 !important;
+}
+
+html[data-theme="light"]
+  [class~="hover:border-zinc-700"]:hover {
+  border-color: #c8ced7 !important;
+}
+
+html[data-theme="light"]
+  [class~="hover:text-zinc-200"]:hover {
+  color: #252b36 !important;
+}
+
+html[data-theme="light"]
+  [class~="hover:text-zinc-300"]:hover {
+  color: #303744 !important;
+}
+
+html[data-theme="light"]
+  [class~="hover:text-white"]:hover {
+  color: #202630 !important;
+}
+
+html[data-theme="light"]
+  [class~="hover:bg-white"]:hover {
+  background-color: #f7faff !important;
+}
+
+/* =========================================================
+   FORMULÁRIOS
+========================================================= */
+
+html[data-theme="light"] input,
+html[data-theme="light"] textarea,
+html[data-theme="light"] select {
+  color-scheme: light;
+}
+
+html[data-theme="light"]
+  input[class*="bg-zinc-"],
+html[data-theme="light"]
+  textarea[class*="bg-zinc-"],
+html[data-theme="light"]
+  select[class*="bg-zinc-"] {
+  background-color: #ffffff !important;
+  color: #303744 !important;
+}
+
+html[data-theme="light"] input::placeholder,
+html[data-theme="light"] textarea::placeholder {
+  color: #9aa3af !important;
+}
+
+html[data-theme="light"]
+  [class~="placeholder:text-zinc-600"]::placeholder {
+  color: #9aa3af !important;
+}
+
+html[data-theme="light"]
+  [class~="focus:border-zinc-600"]:focus {
+  border-color: #9dbbe0 !important;
+}
+
+/* =========================================================
+   BOTÕES ON/OFF DAS CONFIGURAÇÕES
+========================================================= */
+
+html[data-theme="light"] .flow-setting-toggle {
+  background-color: #e0e5eb !important;
+  border: 1px solid #cbd2da !important;
+}
+
+html[data-theme="light"] .flow-setting-toggle-on {
+  background-color: #b8d1ee !important;
+  border-color: #a2bfdf !important;
+}
+
+html[data-theme="light"] .flow-setting-thumb {
+  background-color: #ffffff !important;
+  border: 1px solid #c3cad4 !important;
+  box-shadow:
+    0 1px 3px rgba(30, 41, 59, 0.18);
+}
+
+/* =========================================================
+   BARRA INFERIOR
+========================================================= */
+
+html[data-theme="light"] .flow-bottom-nav {
+  background-color: rgba(255, 255, 255, 0.97) !important;
+  border-color: #dfe3e8 !important;
+  box-shadow:
+    0 12px 30px rgba(30, 41, 59, 0.10) !important;
+}
+
+html[data-theme="light"] .flow-bottom-nav-item {
+  color: #7b8492 !important;
+}
+
+html[data-theme="light"] .flow-bottom-nav-item:hover {
+  background-color: #f1f4f8 !important;
+  color: #4d5868 !important;
+}
+
+html[data-theme="light"] .flow-bottom-nav-item-active {
+  background-color: #e9eef5 !important;
+  color: #344b67 !important;
+}
+
+html[data-theme="light"] .flow-bottom-nav-create {
+  background-color: #ffffff !important;
+  color: #354052 !important;
+  border: 1px solid #dbe1e8;
+  box-shadow:
+    0 5px 14px rgba(30, 41, 59, 0.10) !important;
+}
+
+html[data-theme="light"] .flow-bottom-nav-create-label {
+  color: #7b8492 !important;
+}
+
+/* =========================================================
+   MODAIS
+========================================================= */
+
+html[data-theme="light"] .flow-modal {
+  background-color: #ffffff !important;
+  border-color: #dce1e7 !important;
+  box-shadow:
+    0 20px 50px rgba(30, 41, 59, 0.16) !important;
+}
+
+html[data-theme="light"] .flow-modal-content {
+  background-color: #f4f5f7 !important;
+}
+
+/* =========================================================
+   TRANSIÇÕES
+========================================================= */
+
+html,
+body {
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
 }
