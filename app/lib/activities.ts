@@ -39,9 +39,7 @@ export function getSavedActivities(): Activity[] {
     return [];
   }
 
-  const saved = localStorage.getItem(
-    ACTIVITIES_STORAGE_KEY
-  );
+  const saved = localStorage.getItem(ACTIVITIES_STORAGE_KEY);
 
   if (!saved) {
     return [];
@@ -59,8 +57,5 @@ export function saveActivities(activities: Activity[]) {
     return;
   }
 
-  localStorage.setItem(
-    ACTIVITIES_STORAGE_KEY,
-    JSON.stringify(activities)
-  );
+  localStorage.setItem(ACTIVITIES_STORAGE_KEY, JSON.stringify(activities));
 }

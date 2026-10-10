@@ -8,6 +8,7 @@ import {
   getSavedActivities,
   saveActivities,
 } from "../../lib/activities";
+import { createSupabaseActivity } from "../../lib/supabase-activities";
 
 const months = [
   "Janeiro",
@@ -68,29 +69,24 @@ export default function CompromissoPage() {
   const [endMinute, setEndMinute] = useState(0);
 
   const [conflict, setConflict] = useState<{
-  title: string;
-  start: string;
-  end: string;
-} | null>(null);
+    title: string;
+    start: string;
+    end: string;
+  } | null>(null);
 
   const [recurrence, setRecurrence] = useState<
-  "none" | "weekly" | "weekdays" | "custom"
->("none");
+    "none" | "weekly" | "weekdays" | "custom"
+  >("none");
 
-const [recurrenceDays, setRecurrenceDays] = useState<number[]>([]);
+  const [recurrenceDays, setRecurrenceDays] = useState<number[]>([]);
 
-const [recurrenceEnd, setRecurrenceEnd] = useState<
-  "never" | "date"
->("never");
+  const [recurrenceEnd, setRecurrenceEnd] = useState<"never" | "date">("never");
 
-const [recurrenceEndDay, setRecurrenceEndDay] =
-  useState(today.day);
+  const [recurrenceEndDay, setRecurrenceEndDay] = useState(today.day);
 
-const [recurrenceEndMonth, setRecurrenceEndMonth] =
-  useState(today.month);
+  const [recurrenceEndMonth, setRecurrenceEndMonth] = useState(today.month);
 
-const [recurrenceEndYear, setRecurrenceEndYear] =
-  useState(today.year);
+  const [recurrenceEndYear, setRecurrenceEndYear] = useState(today.year);
 
   const currentYear = new Date().getFullYear();
 
@@ -103,13 +99,10 @@ const [recurrenceEndYear, setRecurrenceEndYear] =
   const isBeforeToday =
     year < today.year ||
     (year === today.year && month < today.month) ||
-    (year === today.year &&
-      month === today.month &&
-      day < today.day);
+    (year === today.year && month === today.month && day < today.day);
 
   const isInvalidTime =
-    startHour > endHour ||
-    (startHour === endHour && startMinute >= endMinute);
+    startHour > endHour || (startHour === endHour && startMinute >= endMinute);
 
   function changeYear(value: number) {
     setYear(value);
@@ -132,118 +125,91 @@ const [recurrenceEndYear, setRecurrenceEndYear] =
   }
 
   function timeToMinutes(time: string) {
-  const [hours, minutes] = time.split(":").map(Number);
+    const [hours, minutes] = time.split(":").map(Number);
 
-  return hours * 60 + minutes;
-}
-
-function overlaps(
-  startA: string,
-  endA: string,
-  startB: string,
-  endB: string
-) {
-  const startAMinutes = timeToMinutes(startA);
-  const endAMinutes = timeToMinutes(endA);
-
-  const startBMinutes = timeToMinutes(startB);
-  const endBMinutes = timeToMinutes(endB);
-
-  return (
-    startAMinutes < endBMinutes &&
-    endAMinutes > startBMinutes
-  );
-}
-
-function findConflict(
-  date: string,
-  start: string,
-  end: string
-) {
-  const activities = getSavedActivities();
-
-  const activityConflict = activities.find((activity) => {
-    const selectedDate = new Date(`${date}T00:00:00`);
-    const activityDate = new Date(
-      `${activity.date}T00:00:00`
-    );
-
-    if (selectedDate < activityDate) {
-      return false;
-    }
-
-    if (
-      activity.recurrenceEnd === "date" &&
-      activity.recurrenceEndDate
-    ) {
-      const recurrenceEndDate = new Date(
-        `${activity.recurrenceEndDate}T00:00:00`
-      );
-
-      if (selectedDate > recurrenceEndDate) {
-        return false;
-      }
-    }
-
-    let occursOnDate = false;
-
-    if (
-      !activity.recurrence ||
-      activity.recurrence === "none"
-    ) {
-      occursOnDate =
-        activity.date === date;
-    }
-
-    if (activity.recurrence === "weekly") {
-      occursOnDate =
-        selectedDate.getDay() ===
-        activityDate.getDay();
-    }
-
-    if (activity.recurrence === "weekdays") {
-      const dayOfWeek = selectedDate.getDay();
-
-      occursOnDate =
-        dayOfWeek >= 1 && dayOfWeek <= 5;
-    }
-
-    if (activity.recurrence === "custom") {
-      occursOnDate =
-        activity.recurrenceDays?.includes(
-          selectedDate.getDay()
-        ) ?? false;
-    }
-
-    if (!occursOnDate) {
-      return false;
-    }
-
-    return overlaps(
-      start,
-      end,
-      activity.start,
-      activity.end
-    );
-  });
-
-  if (activityConflict) {
-    return {
-      title: activityConflict.title,
-      start: activityConflict.start,
-      end: activityConflict.end,
-    };
+    return hours * 60 + minutes;
   }
 
-  const savedTasks = localStorage.getItem("flow-tasks");
+  function overlaps(
+    startA: string,
+    endA: string,
+    startB: string,
+    endB: string,
+  ) {
+    const startAMinutes = timeToMinutes(startA);
+    const endAMinutes = timeToMinutes(endA);
 
-  if (savedTasks) {
-    try {
-      const tasks = JSON.parse(savedTasks);
+    const startBMinutes = timeToMinutes(startB);
+    const endBMinutes = timeToMinutes(endB);
 
-      if (Array.isArray(tasks)) {
-        const taskConflict = tasks.find(
-          (task) => {
+    return startAMinutes < endBMinutes && endAMinutes > startBMinutes;
+  }
+
+  function findConflict(date: string, start: string, end: string) {
+    const activities = getSavedActivities();
+
+    const activityConflict = activities.find((activity) => {
+      const selectedDate = new Date(`${date}T00:00:00`);
+      const activityDate = new Date(`${activity.date}T00:00:00`);
+
+      if (selectedDate < activityDate) {
+        return false;
+      }
+
+      if (activity.recurrenceEnd === "date" && activity.recurrenceEndDate) {
+        const recurrenceEndDate = new Date(
+          `${activity.recurrenceEndDate}T00:00:00`,
+        );
+
+        if (selectedDate > recurrenceEndDate) {
+          return false;
+        }
+      }
+
+      let occursOnDate = false;
+
+      if (!activity.recurrence || activity.recurrence === "none") {
+        occursOnDate = activity.date === date;
+      }
+
+      if (activity.recurrence === "weekly") {
+        occursOnDate = selectedDate.getDay() === activityDate.getDay();
+      }
+
+      if (activity.recurrence === "weekdays") {
+        const dayOfWeek = selectedDate.getDay();
+
+        occursOnDate = dayOfWeek >= 1 && dayOfWeek <= 5;
+      }
+
+      if (activity.recurrence === "custom") {
+        occursOnDate =
+          activity.recurrenceDays?.includes(selectedDate.getDay()) ?? false;
+      }
+
+      if (!occursOnDate) {
+        return false;
+      }
+
+      return overlaps(start, end, activity.start, activity.end);
+    });
+
+    if (activityConflict) {
+      return {
+        title: activityConflict.title,
+        start: activityConflict.start,
+        end: activityConflict.end,
+      };
+    }
+
+    const savedTasks = localStorage.getItem("flow-tasks");
+
+    if (savedTasks) {
+      try {
+        const tasks = JSON.parse(savedTasks);
+
+        if (Array.isArray(tasks)) {
+          const taskConflict = tasks.find((task) => {
             if (
               task.completed ||
               !task.hasTime ||
@@ -255,132 +221,121 @@ function findConflict(
 
             const taskStart = task.startTime;
 
-            const taskDuration =
-              Number(task.durationMinutes) || 0;
+            const taskDuration = Number(task.durationMinutes) || 0;
 
-            const taskStartMinutes =
-              timeToMinutes(taskStart);
+            const taskStartMinutes = timeToMinutes(taskStart);
 
-            const taskEndMinutes =
-              taskStartMinutes + taskDuration;
+            const taskEndMinutes = taskStartMinutes + taskDuration;
 
-            const taskEnd =
-              `${String(
-                Math.floor(taskEndMinutes / 60)
-              ).padStart(2, "0")}:${String(
-                taskEndMinutes % 60
-              ).padStart(2, "0")}`;
+            const taskEnd = `${String(Math.floor(taskEndMinutes / 60)).padStart(
+              2,
+              "0",
+            )}:${String(taskEndMinutes % 60).padStart(2, "0")}`;
 
-            return overlaps(
-              start,
-              end,
-              taskStart,
-              taskEnd
-            );
+            return overlaps(start, end, taskStart, taskEnd);
+          });
+
+          if (taskConflict) {
+            return {
+              title: taskConflict.title,
+              start: taskConflict.startTime,
+              end: (() => {
+                const startMinutes = timeToMinutes(taskConflict.startTime);
+
+                const endMinutes =
+                  startMinutes + (Number(taskConflict.durationMinutes) || 0);
+
+                return `${String(Math.floor(endMinutes / 60)).padStart(
+                  2,
+                  "0",
+                )}:${String(endMinutes % 60).padStart(2, "0")}`;
+              })(),
+            };
           }
-        );
-
-        if (taskConflict) {
-          return {
-            title: taskConflict.title,
-            start: taskConflict.startTime,
-            end: (() => {
-              const startMinutes =
-                timeToMinutes(taskConflict.startTime);
-
-              const endMinutes =
-                startMinutes +
-                (Number(taskConflict.durationMinutes) || 0);
-
-              return `${String(
-                Math.floor(endMinutes / 60)
-              ).padStart(2, "0")}:${String(
-                endMinutes % 60
-              ).padStart(2, "0")}`;
-            })(),
-          };
         }
+      } catch {
+        console.error("Não foi possível verificar conflitos com as tarefas.");
       }
-    } catch {
-      console.error(
-        "Não foi possível verificar conflitos com as tarefas."
+    }
+
+    return null;
+  }
+
+  async function handleSave(forceSave = false) {
+    if (!title.trim() || isBeforeToday || isInvalidTime) {
+      return;
+    }
+
+    const date = `${year}-${String(month + 1).padStart(
+      2,
+      "0",
+    )}-${String(day).padStart(2, "0")}`;
+
+    const startTime = `${String(startHour).padStart(
+      2,
+      "0",
+    )}:${String(startMinute).padStart(2, "0")}`;
+
+    const endTime = `${String(endHour).padStart(
+      2,
+      "0",
+    )}:${String(endMinute).padStart(2, "0")}`;
+
+    if (!forceSave) {
+      const foundConflict = findConflict(date, startTime, endTime);
+
+      if (foundConflict) {
+        setConflict(foundConflict);
+        return;
+      }
+    }
+
+    const recurrenceEndDate =
+      recurrence !== "none" && recurrenceEnd === "date"
+        ? `${recurrenceEndYear}-${String(recurrenceEndMonth + 1).padStart(
+            2,
+            "0",
+          )}-${String(recurrenceEndDay).padStart(2, "0")}`
+        : null;
+
+    const newActivity = {
+      title: title.trim(),
+      date,
+      start: startTime,
+      end: endTime,
+      category,
+      color: getCategoryColor(category),
+      recurrence,
+      recurrenceDays,
+      recurrenceEnd,
+      recurrenceEndDate,
+    };
+
+    try {
+      const id = await createSupabaseActivity(newActivity);
+
+      const currentActivities = getSavedActivities();
+
+      saveActivities([
+        ...currentActivities,
+        {
+          ...newActivity,
+          id: Date.now(),
+        },
+      ]);
+
+      router.push("/agenda");
+    } catch (error) {
+      console.error("Erro ao salvar compromisso:", error);
+      alert(
+        "Não foi possível salvar o compromisso no Supabase. Verifique se você está conectado à sua conta e tente novamente.",
       );
     }
   }
 
-  return null;
-}
-
-  function handleSave(forceSave = false) {
-  if (!title || isBeforeToday || isInvalidTime) {
-    return;
-  }
-
-  const date = `${year}-${String(month + 1).padStart(
-    2,
-    "0"
-  )}-${String(day).padStart(2, "0")}`;
-
-  const startTime = `${String(startHour).padStart(
-    2,
-    "0"
-  )}:${String(startMinute).padStart(2, "0")}`;
-
-  const endTime = `${String(endHour).padStart(
-    2,
-    "0"
-  )}:${String(endMinute).padStart(2, "0")}`;
-
-    if (!forceSave) {
-    const foundConflict = findConflict(
-      date,
-      startTime,
-      endTime
-    );
-
-    if (foundConflict) {
-      setConflict(foundConflict);
-      return;
-    }
-  }
-
-  const recurrenceEndDate =
-  recurrence !== "none" && recurrenceEnd === "date"
-    ? `${recurrenceEndYear}-${String(
-        recurrenceEndMonth + 1
-      ).padStart(2, "0")}-${String(
-        recurrenceEndDay
-      ).padStart(2, "0")}`
-    : null;
-
-const newActivity = {
-  id: Date.now(),
-  title: title.trim(),
-  date,
-  start: startTime,
-  end: endTime,
-  category,
-  color: getCategoryColor(category),
-  recurrence,
-  recurrenceDays,
-  recurrenceEnd,
-  recurrenceEndDate,
-};
-
-  const currentActivities = getSavedActivities();
-
-  saveActivities([
-    ...currentActivities,
-    newActivity,
-  ]);
-
-  router.push("/agenda");
-}
-
   return (
     <main className="min-h-screen bg-zinc-950 pb-32 text-zinc-100">
       <div className="mx-auto max-w-2xl px-6 py-8">
-
         {/* Cabeçalho */}
         <header>
           <button
@@ -390,9 +345,7 @@ const newActivity = {
             ← Voltar
           </button>
 
-          <p className="mt-8 text-sm text-zinc-500">
-            Nova criação
-          </p>
+          <p className="mt-8 text-sm text-zinc-500">Nova criação</p>
 
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">
             Novo compromisso
@@ -405,7 +358,6 @@ const newActivity = {
 
         {/* Formulário */}
         <section className="mt-8 rounded-3xl border border-zinc-800 bg-zinc-900/70 p-6">
-
           {/* Nome */}
           <div>
             <label className="text-sm font-medium text-zinc-300">
@@ -440,29 +392,18 @@ const newActivity = {
 
           {/* Data */}
           <div className="mt-5">
-            <label className="text-sm font-medium text-zinc-300">
-              Data
-            </label>
+            <label className="text-sm font-medium text-zinc-300">Data</label>
 
             <div className="mt-2 grid grid-cols-[0.8fr_1.5fr_1fr] gap-2">
-
               {/* Dia */}
               <select
                 value={day}
-                onChange={(event) =>
-                  setDay(Number(event.target.value))
-                }
+                onChange={(event) => setDay(Number(event.target.value))}
                 className="rounded-2xl border border-zinc-800 bg-zinc-950 px-3 py-3 text-sm outline-none focus:border-zinc-600"
               >
-                {Array.from(
-                  { length: maxDay },
-                  (_, index) => index + 1
-                )
+                {Array.from({ length: maxDay }, (_, index) => index + 1)
                   .filter((item) => {
-                    if (
-                      year === today.year &&
-                      month === today.month
-                    ) {
+                    if (year === today.year && month === today.month) {
                       return item >= today.day;
                     }
 
@@ -478,22 +419,14 @@ const newActivity = {
               {/* Mês */}
               <select
                 value={month}
-                onChange={(event) =>
-                  changeMonth(Number(event.target.value))
-                }
+                onChange={(event) => changeMonth(Number(event.target.value))}
                 className="rounded-2xl border border-zinc-800 bg-zinc-950 px-3 py-3 text-sm outline-none focus:border-zinc-600"
               >
                 {months.map((item, index) => {
-                  const disabled =
-                    year === today.year &&
-                    index < today.month;
+                  const disabled = year === today.year && index < today.month;
 
                   return (
-                    <option
-                      key={item}
-                      value={index}
-                      disabled={disabled}
-                    >
+                    <option key={item} value={index} disabled={disabled}>
                       {item}
                     </option>
                   );
@@ -503,9 +436,7 @@ const newActivity = {
               {/* Ano */}
               <select
                 value={year}
-                onChange={(event) =>
-                  changeYear(Number(event.target.value))
-                }
+                onChange={(event) => changeYear(Number(event.target.value))}
                 className="rounded-2xl border border-zinc-800 bg-zinc-950 px-3 py-3 text-sm outline-none focus:border-zinc-600"
               >
                 {availableYears.map((item) => (
@@ -523,7 +454,7 @@ const newActivity = {
             )}
           </div>
 
-           {/* Recorrência */}
+          {/* Recorrência */}
           <div className="mt-5">
             <label className="text-sm font-medium text-zinc-300">
               Repetição
@@ -537,7 +468,7 @@ const newActivity = {
                     | "none"
                     | "weekly"
                     | "weekdays"
-                    | "custom"
+                    | "custom",
                 )
               }
               className="mt-2 w-full rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm outline-none focus:border-zinc-600"
@@ -559,9 +490,7 @@ const newActivity = {
                   { label: "S", value: 5 },
                   { label: "S", value: 6 },
                 ].map((dayOption) => {
-                  const selected = recurrenceDays.includes(
-                    dayOption.value
-                  );
+                  const selected = recurrenceDays.includes(dayOption.value);
 
                   return (
                     <button
@@ -570,10 +499,8 @@ const newActivity = {
                       onClick={() => {
                         setRecurrenceDays((current) =>
                           selected
-                            ? current.filter(
-                                (day) => day !== dayOption.value
-                              )
-                            : [...current, dayOption.value]
+                            ? current.filter((day) => day !== dayOption.value)
+                            : [...current, dayOption.value],
                         );
                       }}
                       className={`rounded-xl border px-2 py-3 text-sm transition ${
@@ -589,7 +516,7 @@ const newActivity = {
               </div>
             )}
 
-                        {recurrence !== "none" && (
+            {recurrence !== "none" && (
               <div className="mt-5">
                 <label className="text-sm font-medium text-zinc-300">
                   Termina
@@ -598,9 +525,7 @@ const newActivity = {
                 <select
                   value={recurrenceEnd}
                   onChange={(event) =>
-                    setRecurrenceEnd(
-                      event.target.value as "never" | "date"
-                    )
+                    setRecurrenceEnd(event.target.value as "never" | "date")
                   }
                   className="mt-2 w-full rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm outline-none focus:border-zinc-600"
                 >
@@ -610,78 +535,69 @@ const newActivity = {
               </div>
             )}
 
-                        {recurrence !== "none" &&
-              recurrenceEnd === "date" && (
-                <div className="mt-3">
-                  <label className="text-sm font-medium text-zinc-300">
-                    Data final
-                  </label>
+            {recurrence !== "none" && recurrenceEnd === "date" && (
+              <div className="mt-3">
+                <label className="text-sm font-medium text-zinc-300">
+                  Data final
+                </label>
 
-                  <div className="mt-2 grid grid-cols-[0.8fr_1.5fr_1fr] gap-2">
-                    <select
-                      value={recurrenceEndDay}
-                      onChange={(event) =>
-                        setRecurrenceEndDay(
-                          Number(event.target.value)
-                        )
-                      }
-                      className="rounded-2xl border border-zinc-800 bg-zinc-950 px-3 py-3 text-sm outline-none focus:border-zinc-600"
-                    >
-                      {Array.from(
-                        {
-                          length: daysInMonth(
-                            recurrenceEndMonth,
-                            recurrenceEndYear
-                          ),
-                        },
-                        (_, index) => index + 1
-                      ).map((item) => (
-                        <option key={item} value={item}>
-                          {String(item).padStart(2, "0")}
-                        </option>
-                      ))}
-                    </select>
+                <div className="mt-2 grid grid-cols-[0.8fr_1.5fr_1fr] gap-2">
+                  <select
+                    value={recurrenceEndDay}
+                    onChange={(event) =>
+                      setRecurrenceEndDay(Number(event.target.value))
+                    }
+                    className="rounded-2xl border border-zinc-800 bg-zinc-950 px-3 py-3 text-sm outline-none focus:border-zinc-600"
+                  >
+                    {Array.from(
+                      {
+                        length: daysInMonth(
+                          recurrenceEndMonth,
+                          recurrenceEndYear,
+                        ),
+                      },
+                      (_, index) => index + 1,
+                    ).map((item) => (
+                      <option key={item} value={item}>
+                        {String(item).padStart(2, "0")}
+                      </option>
+                    ))}
+                  </select>
 
-                    <select
-                      value={recurrenceEndMonth}
-                      onChange={(event) =>
-                        setRecurrenceEndMonth(
-                          Number(event.target.value)
-                        )
-                      }
-                      className="rounded-2xl border border-zinc-800 bg-zinc-950 px-3 py-3 text-sm outline-none focus:border-zinc-600"
-                    >
-                      {months.map((item, index) => (
-                        <option key={item} value={index}>
-                          {item}
-                        </option>
-                      ))}
-                    </select>
+                  <select
+                    value={recurrenceEndMonth}
+                    onChange={(event) =>
+                      setRecurrenceEndMonth(Number(event.target.value))
+                    }
+                    className="rounded-2xl border border-zinc-800 bg-zinc-950 px-3 py-3 text-sm outline-none focus:border-zinc-600"
+                  >
+                    {months.map((item, index) => (
+                      <option key={item} value={index}>
+                        {item}
+                      </option>
+                    ))}
+                  </select>
 
-                    <select
-                      value={recurrenceEndYear}
-                      onChange={(event) =>
-                        setRecurrenceEndYear(
-                          Number(event.target.value)
-                        )
-                      }
-                      className="rounded-2xl border border-zinc-800 bg-zinc-950 px-3 py-3 text-sm outline-none focus:border-zinc-600"
-                    >
-                      {availableYears.map((item) => (
-                        <option key={item} value={item}>
-                          {item}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <select
+                    value={recurrenceEndYear}
+                    onChange={(event) =>
+                      setRecurrenceEndYear(Number(event.target.value))
+                    }
+                    className="rounded-2xl border border-zinc-800 bg-zinc-950 px-3 py-3 text-sm outline-none focus:border-zinc-600"
+                  >
+                    {availableYears.map((item) => (
+                      <option key={item} value={item}>
+                        {item}
+                      </option>
+                    ))}
+                  </select>
                 </div>
-              )}
-
+              </div>
+            )}
           </div>
 
           {/* Horários */}
           <div className="mt-5 grid gap-5 sm:grid-cols-2">
-
             {/* Início */}
             <div>
               <label className="text-sm font-medium text-zinc-300">
@@ -689,7 +605,6 @@ const newActivity = {
               </label>
 
               <div className="mt-2 grid grid-cols-2 gap-2">
-
                 <div>
                   <select
                     value={startHour}
@@ -698,14 +613,13 @@ const newActivity = {
                     }
                     className="w-full rounded-2xl border border-zinc-800 bg-zinc-950 px-3 py-3 text-sm outline-none focus:border-zinc-600"
                   >
-                    {Array.from(
-                      { length: 24 },
-                      (_, index) => index
-                    ).map((hour) => (
-                      <option key={hour} value={hour}>
-                        {String(hour).padStart(2, "0")}
-                      </option>
-                    ))}
+                    {Array.from({ length: 24 }, (_, index) => index).map(
+                      (hour) => (
+                        <option key={hour} value={hour}>
+                          {String(hour).padStart(2, "0")}
+                        </option>
+                      ),
+                    )}
                   </select>
 
                   <p className="mt-1 text-center text-[11px] text-zinc-600">
@@ -721,21 +635,19 @@ const newActivity = {
                     }
                     className="w-full rounded-2xl border border-zinc-800 bg-zinc-950 px-3 py-3 text-sm outline-none focus:border-zinc-600"
                   >
-                    {Array.from(
-                      { length: 60 },
-                      (_, index) => index
-                    ).map((minute) => (
-                      <option key={minute} value={minute}>
-                        {String(minute).padStart(2, "0")}
-                      </option>
-                    ))}
+                    {Array.from({ length: 60 }, (_, index) => index).map(
+                      (minute) => (
+                        <option key={minute} value={minute}>
+                          {String(minute).padStart(2, "0")}
+                        </option>
+                      ),
+                    )}
                   </select>
 
                   <p className="mt-1 text-center text-[11px] text-zinc-600">
                     Minuto
                   </p>
                 </div>
-
               </div>
             </div>
 
@@ -746,23 +658,19 @@ const newActivity = {
               </label>
 
               <div className="mt-2 grid grid-cols-2 gap-2">
-
                 <div>
                   <select
                     value={endHour}
-                    onChange={(event) =>
-                      setEndHour(Number(event.target.value))
-                    }
+                    onChange={(event) => setEndHour(Number(event.target.value))}
                     className="w-full rounded-2xl border border-zinc-800 bg-zinc-950 px-3 py-3 text-sm outline-none focus:border-zinc-600"
                   >
-                    {Array.from(
-                      { length: 24 },
-                      (_, index) => index
-                    ).map((hour) => (
-                      <option key={hour} value={hour}>
-                        {String(hour).padStart(2, "0")}
-                      </option>
-                    ))}
+                    {Array.from({ length: 24 }, (_, index) => index).map(
+                      (hour) => (
+                        <option key={hour} value={hour}>
+                          {String(hour).padStart(2, "0")}
+                        </option>
+                      ),
+                    )}
                   </select>
 
                   <p className="mt-1 text-center text-[11px] text-zinc-600">
@@ -778,21 +686,19 @@ const newActivity = {
                     }
                     className="w-full rounded-2xl border border-zinc-800 bg-zinc-950 px-3 py-3 text-sm outline-none focus:border-zinc-600"
                   >
-                    {Array.from(
-                      { length: 60 },
-                      (_, index) => index
-                    ).map((minute) => (
-                      <option key={minute} value={minute}>
-                        {String(minute).padStart(2, "0")}
-                      </option>
-                    ))}
+                    {Array.from({ length: 60 }, (_, index) => index).map(
+                      (minute) => (
+                        <option key={minute} value={minute}>
+                          {String(minute).padStart(2, "0")}
+                        </option>
+                      ),
+                    )}
                   </select>
 
                   <p className="mt-1 text-center text-[11px] text-zinc-600">
                     Minuto
                   </p>
                 </div>
-
               </div>
             </div>
           </div>
@@ -806,22 +712,16 @@ const newActivity = {
           {/* Botão */}
           <button
             onClick={() => handleSave(false)}
-            disabled={
-              !title ||
-              isBeforeToday ||
-              isInvalidTime
-            }
+            disabled={!title || isBeforeToday || isInvalidTime}
             className="mt-8 w-full rounded-2xl bg-zinc-100 px-4 py-3 font-medium text-zinc-950 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
           >
             Salvar compromisso
           </button>
         </section>
-                {conflict && (
+        {conflict && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-6">
             <div className="w-full max-w-md rounded-3xl border border-zinc-800 bg-zinc-900 p-6 shadow-2xl">
-              <p className="text-sm text-zinc-500">
-                Conflito de horário
-              </p>
+              <p className="text-sm text-zinc-500">Conflito de horário</p>
 
               <h2 className="mt-2 text-xl font-semibold">
                 Esse horário já está ocupado

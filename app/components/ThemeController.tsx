@@ -12,30 +12,18 @@ function applyTheme(theme: Theme) {
   const isDark =
     theme === "dark" ||
     (theme === "system" &&
-      window.matchMedia(
-        "(prefers-color-scheme: dark)"
-      ).matches);
+      window.matchMedia("(prefers-color-scheme: dark)").matches);
 
-  root.dataset.theme = isDark
-    ? "dark"
-    : "light";
+  root.dataset.theme = isDark ? "dark" : "light";
 
-  root.classList.toggle(
-    "dark",
-    isDark
-  );
+  root.classList.toggle("dark", isDark);
 
-  root.style.colorScheme = isDark
-    ? "dark"
-    : "light";
+  root.style.colorScheme = isDark ? "dark" : "light";
 }
 
 function readTheme(): Theme {
   try {
-    const saved =
-      localStorage.getItem(
-        SETTINGS_STORAGE_KEY
-      );
+    const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
 
     if (!saved) {
       return "dark";
@@ -65,10 +53,7 @@ export default function ThemeController() {
 
     update();
 
-    const mediaQuery =
-      window.matchMedia(
-        "(prefers-color-scheme: dark)"
-      );
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
 
     const handleSystemTheme = () => {
       if (readTheme() === "system") {
@@ -76,37 +61,20 @@ export default function ThemeController() {
       }
     };
 
-    const handleStorage = (
-      event: StorageEvent
-    ) => {
-      if (
-        event.key ===
-        SETTINGS_STORAGE_KEY
-      ) {
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === SETTINGS_STORAGE_KEY) {
         update();
       }
     };
 
-    mediaQuery.addEventListener(
-      "change",
-      handleSystemTheme
-    );
+    mediaQuery.addEventListener("change", handleSystemTheme);
 
-    window.addEventListener(
-      "storage",
-      handleStorage
-    );
+    window.addEventListener("storage", handleStorage);
 
     return () => {
-      mediaQuery.removeEventListener(
-        "change",
-        handleSystemTheme
-      );
+      mediaQuery.removeEventListener("change", handleSystemTheme);
 
-      window.removeEventListener(
-        "storage",
-        handleStorage
-      );
+      window.removeEventListener("storage", handleStorage);
     };
   }, []);
 

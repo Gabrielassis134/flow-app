@@ -30,17 +30,11 @@ export default function CriarPage() {
     <main className="min-h-screen bg-zinc-950 pb-32 text-zinc-100">
       <div className="mx-auto max-w-3xl px-6 py-8">
         <header>
-          <p className="text-sm text-zinc-500">
-            Nova criação
-          </p>
+          <p className="text-sm text-zinc-500">Nova criação</p>
 
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight">
-            Criar
-          </h1>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight">Criar</h1>
 
-          <p className="mt-2 text-sm text-zinc-400">
-            O que você quer criar?
-          </p>
+          <p className="mt-2 text-sm text-zinc-400">O que você quer criar?</p>
         </header>
 
         <section className="mt-8 space-y-3">
@@ -55,18 +49,14 @@ export default function CriarPage() {
               </div>
 
               <div className="min-w-0 flex-1">
-                <h2 className="font-medium">
-                  {option.title}
-                </h2>
+                <h2 className="font-medium">{option.title}</h2>
 
                 <p className="mt-1 text-sm text-zinc-500">
                   {option.description}
                 </p>
               </div>
 
-              <span className="text-xl text-zinc-600">
-                ›
-              </span>
+              <span className="text-xl text-zinc-600">›</span>
             </button>
           ))}
         </section>

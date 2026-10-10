@@ -2,10 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import {
-  Activity,
-  getSavedActivities,
-} from "./lib/activities";
+import { Activity, getSavedActivities } from "./lib/activities";
 
 type Task = {
   id: number;
@@ -31,9 +28,10 @@ type AgendaItem = {
 };
 
 function dateKey(date: Date) {
-  return `${date.getFullYear()}-${String(
-    date.getMonth() + 1
-  ).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
+    2,
+    "0",
+  )}-${String(date.getDate()).padStart(2, "0")}`;
 }
 
 function timeToMinutes(time: string) {
@@ -45,9 +43,7 @@ function minutesToTime(minutes: number) {
   const hours = Math.floor(minutes / 60);
   const mins = minutes % 60;
 
-  return `${String(hours).padStart(2, "0")}:${String(
-    mins
-  ).padStart(2, "0")}`;
+  return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
 }
 
 function getTaskEnd(task: Task) {
@@ -55,32 +51,23 @@ function getTaskEnd(task: Task) {
     return "";
   }
 
-  const durationMinutes =
-    Number(task.durationMinutes) || 0;
+  const durationMinutes = Number(task.durationMinutes) || 0;
 
   const startMinutes = timeToMinutes(task.startTime);
 
   return minutesToTime(startMinutes + durationMinutes);
 }
 
-function activityOccursOnDate(
-  activity: Activity,
-  date: Date
-) {
-  const activityDate = new Date(
-    `${activity.date}T00:00:00`
-  );
+function activityOccursOnDate(activity: Activity, date: Date) {
+  const activityDate = new Date(`${activity.date}T00:00:00`);
 
   if (date < activityDate) {
     return false;
   }
 
-  if (
-    activity.recurrenceEnd === "date" &&
-    activity.recurrenceEndDate
-  ) {
+  if (activity.recurrenceEnd === "date" && activity.recurrenceEndDate) {
     const recurrenceEndDate = new Date(
-      `${activity.recurrenceEndDate}T00:00:00`
+      `${activity.recurrenceEndDate}T00:00:00`,
     );
 
     if (date > recurrenceEndDate) {
@@ -90,10 +77,7 @@ function activityOccursOnDate(
 
   const dayOfWeek = date.getDay();
 
-  if (
-    !activity.recurrence ||
-    activity.recurrence === "none"
-  ) {
+  if (!activity.recurrence || activity.recurrence === "none") {
     return activity.date === dateKey(date);
   }
 
@@ -106,10 +90,7 @@ function activityOccursOnDate(
   }
 
   if (activity.recurrence === "custom") {
-    return (
-      activity.recurrenceDays?.includes(dayOfWeek) ??
-      false
-    );
+    return activity.recurrenceDays?.includes(dayOfWeek) ?? false;
   }
 
   return false;
@@ -138,8 +119,7 @@ function getGreeting(hour: number) {
 }
 
 function getTimeUntil(start: string, now: Date) {
-  const currentMinutes =
-    now.getHours() * 60 + now.getMinutes();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
   const startMinutes = timeToMinutes(start);
 
@@ -164,9 +144,7 @@ function getTimeUntil(start: string, now: Date) {
 }
 
 export default function Home() {
-  const [activities, setActivities] = useState<Activity[]>(
-    []
-  );
+  const [activities, setActivities] = useState<Activity[]>([]);
 
   const [tasks, setTasks] = useState<Task[]>([]);
 
@@ -175,18 +153,13 @@ export default function Home() {
   function loadData() {
     setActivities(getSavedActivities());
 
-    const savedTasks =
-      localStorage.getItem("flow-tasks");
+    const savedTasks = localStorage.getItem("flow-tasks");
 
     if (savedTasks) {
       try {
         const parsedTasks = JSON.parse(savedTasks);
 
-        setTasks(
-          Array.isArray(parsedTasks)
-            ? parsedTasks
-            : []
-        );
+        setTasks(Array.isArray(parsedTasks) ? parsedTasks : []);
       } catch {
         setTasks([]);
       }
@@ -209,17 +182,11 @@ export default function Home() {
       loadData();
     };
 
-    window.addEventListener(
-      "storage",
-      handleStorage
-    );
+    window.addEventListener("storage", handleStorage);
 
     return () => {
       window.clearInterval(interval);
-      window.removeEventListener(
-        "storage",
-        handleStorage
-      );
+      window.removeEventListener("storage", handleStorage);
     };
   }, []);
 
@@ -228,23 +195,15 @@ export default function Home() {
       return new Date();
     }
 
-    return new Date(
-      now.getFullYear(),
-      now.getMonth(),
-      now.getDate()
-    );
+    return new Date(now.getFullYear(), now.getMonth(), now.getDate());
   }, [now]);
 
   const todayKey = dateKey(today);
 
   const todayActivities = useMemo(() => {
     return activities
-      .filter((activity) =>
-        activityOccursOnDate(activity, today)
-      )
-      .sort((a, b) =>
-        a.start.localeCompare(b.start)
-      );
+      .filter((activity) => activityOccursOnDate(activity, today))
+      .sort((a, b) => a.start.localeCompare(b.start));
   }, [activities, todayKey]);
 
   const todayTasks = useMemo(() => {
@@ -254,21 +213,13 @@ export default function Home() {
           return false;
         }
 
-        const taskDate =
-          task.date || task.deadline;
+        const taskDate = task.date || task.deadline;
 
         return taskDate === todayKey;
       })
       .sort((a, b) => {
-        if (
-          a.hasTime &&
-          a.startTime &&
-          b.hasTime &&
-          b.startTime
-        ) {
-          return a.startTime.localeCompare(
-            b.startTime
-          );
+        if (a.hasTime && a.startTime && b.hasTime && b.startTime) {
+          return a.startTime.localeCompare(b.startTime);
         }
 
         if (a.hasTime && a.startTime) {
@@ -284,58 +235,42 @@ export default function Home() {
   }, [tasks, todayKey]);
 
   const scheduledTodayTasks = useMemo(() => {
-    return todayTasks.filter(
-      (task) =>
-        task.hasTime &&
-        task.startTime
-    );
+    return todayTasks.filter((task) => task.hasTime && task.startTime);
   }, [todayTasks]);
 
   const agendaItems = useMemo<AgendaItem[]>(() => {
-    const activityItems: AgendaItem[] =
-      todayActivities.map((activity) => ({
-        id: `activity-${activity.id}`,
-        title: activity.title,
-        start: activity.start,
-        end: activity.end,
-        category: activity.category,
-        type: "activity",
-      }));
+    const activityItems: AgendaItem[] = todayActivities.map((activity) => ({
+      id: `activity-${activity.id}`,
+      title: activity.title,
+      start: activity.start,
+      end: activity.end,
+      category: activity.category,
+      type: "activity",
+    }));
 
-    const taskItems: AgendaItem[] =
-      scheduledTodayTasks.map((task) => ({
-        id: `task-${task.id}`,
-        title: task.title,
-        start: task.startTime || "",
-        end: getTaskEnd(task),
-        category:
-          task.category || "Tarefa",
-        type: "task",
-      }));
+    const taskItems: AgendaItem[] = scheduledTodayTasks.map((task) => ({
+      id: `task-${task.id}`,
+      title: task.title,
+      start: task.startTime || "",
+      end: getTaskEnd(task),
+      category: task.category || "Tarefa",
+      type: "task",
+    }));
 
-    return [
-      ...activityItems,
-      ...taskItems,
-    ].sort((a, b) =>
-      a.start.localeCompare(b.start)
+    return [...activityItems, ...taskItems].sort((a, b) =>
+      a.start.localeCompare(b.start),
     );
-  }, [
-    todayActivities,
-    scheduledTodayTasks,
-  ]);
+  }, [todayActivities, scheduledTodayTasks]);
 
   const nextItem = useMemo(() => {
     if (!now) {
       return null;
     }
 
-    const currentMinutes =
-      now.getHours() * 60 + now.getMinutes();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
     const futureItems = agendaItems.filter(
-      (item) =>
-        timeToMinutes(item.start) >=
-        currentMinutes
+      (item) => timeToMinutes(item.start) >= currentMinutes,
     );
 
     return futureItems[0] ?? null;
@@ -345,32 +280,25 @@ export default function Home() {
     return tasks
       .filter((task) => !task.completed)
       .sort((a, b) => {
-        const dateA =
-          a.date || a.deadline || "9999-12-31";
+        const dateA = a.date || a.deadline || "9999-12-31";
 
-        const dateB =
-          b.date || b.deadline || "9999-12-31";
+        const dateB = b.date || b.deadline || "9999-12-31";
 
         return dateA.localeCompare(dateB);
       })
       .slice(0, 4);
   }, [tasks]);
 
-  const greeting = now
-    ? getGreeting(now.getHours())
-    : "Olá";
+  const greeting = now ? getGreeting(now.getHours()) : "Olá";
 
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-100">
       <div className="mx-auto flex min-h-screen max-w-7xl flex-col px-6 py-8 pb-32">
-
         {/* Cabeçalho */}
         <header className="flex items-center justify-between">
           <Link href="/">
             <div>
-              <h1 className="text-2xl font-semibold tracking-tight">
-                Flow
-              </h1>
+              <h1 className="text-2xl font-semibold tracking-tight">Flow</h1>
 
               <p className="mt-1 text-sm text-zinc-400">
                 Organize sua rotina. Viva seu tempo.
@@ -388,17 +316,14 @@ export default function Home() {
 
         {/* Saudação */}
         <section className="mt-12">
-          <p className="text-sm text-zinc-400">
-            {formatLongDate(today)}
-          </p>
+          <p className="text-sm text-zinc-400">{formatLongDate(today)}</p>
 
           <h2 className="mt-2 text-4xl font-semibold tracking-tight">
             {greeting} 👋
           </h2>
 
           <p className="mt-3 max-w-xl text-zinc-400">
-            Aqui está um resumo do que está acontecendo
-            com você hoje.
+            Aqui está um resumo do que está acontecendo com você hoje.
           </p>
         </section>
 
@@ -409,9 +334,7 @@ export default function Home() {
               {nextItem ? (
                 <div className="flex items-center justify-between gap-6">
                   <div className="min-w-0">
-                    <p className="text-sm text-zinc-400">
-                      Próxima atividade
-                    </p>
+                    <p className="text-sm text-zinc-400">Próxima atividade</p>
 
                     <h3 className="mt-2 truncate text-2xl font-medium">
                       {nextItem.title}
@@ -419,40 +342,28 @@ export default function Home() {
 
                     <p className="mt-2 text-sm text-zinc-400">
                       Hoje · {nextItem.start}
-                      {nextItem.end
-                        ? ` – ${nextItem.end}`
-                        : ""}
+                      {nextItem.end ? ` – ${nextItem.end}` : ""}
                     </p>
                   </div>
 
                   <div className="shrink-0 rounded-2xl bg-zinc-800 px-4 py-3 text-center">
-                    <p className="text-xs text-zinc-400">
-                      Em
-                    </p>
+                    <p className="text-xs text-zinc-400">Em</p>
 
                     <p className="mt-1 text-lg font-semibold">
-                      {now
-                        ? getTimeUntil(
-                            nextItem.start,
-                            now
-                          )
-                        : "..."}
+                      {now ? getTimeUntil(nextItem.start, now) : "..."}
                     </p>
                   </div>
                 </div>
               ) : (
                 <div>
-                  <p className="text-sm text-zinc-400">
-                    Próxima atividade
-                  </p>
+                  <p className="text-sm text-zinc-400">Próxima atividade</p>
 
                   <h3 className="mt-2 text-2xl font-medium">
                     Nada agendado por enquanto
                   </h3>
 
                   <p className="mt-2 text-sm text-zinc-400">
-                    Seu dia está livre. Aproveite ou
-                    planeje alguma coisa.
+                    Seu dia está livre. Aproveite ou planeje alguma coisa.
                   </p>
                 </div>
               )}
@@ -462,13 +373,10 @@ export default function Home() {
 
         {/* Resumo */}
         <section className="mt-6 grid gap-6 md:grid-cols-2">
-
           {/* Agenda */}
           <div className="rounded-3xl border border-zinc-800 bg-zinc-900/60 p-6">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium">
-                Hoje
-              </h3>
+              <h3 className="text-lg font-medium">Hoje</h3>
 
               <Link
                 href="/agenda"
@@ -487,24 +395,17 @@ export default function Home() {
                 </div>
               ) : (
                 agendaItems.map((item) => (
-                  <div
-                    key={item.id}
-                    className="flex gap-4"
-                  >
+                  <div key={item.id} className="flex gap-4">
                     <div className="w-14 shrink-0 text-sm text-zinc-500">
                       {item.start}
                     </div>
 
                     <div className="min-w-0 flex-1 rounded-2xl bg-zinc-800/70 p-4">
-                      <p className="truncate font-medium">
-                        {item.title}
-                      </p>
+                      <p className="truncate font-medium">{item.title}</p>
 
                       <p className="mt-1 text-sm text-zinc-400">
                         {item.category}
-                        {item.type === "task"
-                          ? " · Tarefa"
-                          : ""}
+                        {item.type === "task" ? " · Tarefa" : ""}
                       </p>
                     </div>
                   </div>
@@ -516,9 +417,7 @@ export default function Home() {
           {/* Tarefas */}
           <div className="rounded-3xl border border-zinc-800 bg-zinc-900/60 p-6">
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium">
-                Tarefas
-              </h3>
+              <h3 className="text-lg font-medium">Tarefas</h3>
 
               <Link
                 href="/tarefas"
@@ -545,9 +444,7 @@ export default function Home() {
                     <div className="h-5 w-5 shrink-0 rounded-full border border-zinc-600" />
 
                     <div className="min-w-0">
-                      <p className="truncate font-medium">
-                        {task.title}
-                      </p>
+                      <p className="truncate font-medium">{task.title}</p>
 
                       <p className="text-sm text-zinc-400">
                         {task.duration ||
@@ -562,9 +459,7 @@ export default function Home() {
               )}
             </div>
           </div>
-
         </section>
-
       </div>
     </main>
   );

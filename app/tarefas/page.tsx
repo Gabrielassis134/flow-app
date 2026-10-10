@@ -51,69 +51,62 @@ export default function TarefasPage() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   function formatDate(date: string) {
-  const [year, month, day] = date.split("-");
+    const [year, month, day] = date.split("-");
 
-  return `${day}/${month}/${year}`;
-}
-
-  useEffect(() => {
-  const saved = localStorage.getItem("flow-tasks");
-
-  if (!saved) {
-    return;
+    return `${day}/${month}/${year}`;
   }
 
-  try {
-    const savedTasks = JSON.parse(saved);
+  useEffect(() => {
+    const saved = localStorage.getItem("flow-tasks");
 
-    if (!Array.isArray(savedTasks)) {
+    if (!saved) {
       return;
     }
 
-    setTasks(savedTasks);
-    
-  } catch {
-    console.error(
-      "Não foi possível carregar as tarefas salvas."
-    );
-  }
-}, []);
+    try {
+      const savedTasks = JSON.parse(saved);
 
+      if (!Array.isArray(savedTasks)) {
+        return;
+      }
 
+      setTasks(savedTasks);
+    } catch {
+      console.error("Não foi possível carregar as tarefas salvas.");
+    }
+  }, []);
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
       if (filter === "Todas") return true;
 
       if (filter === "Hoje") {
-  const today = new Date();
+        const today = new Date();
 
-  const todayKey = `${today.getFullYear()}-${String(
-    today.getMonth() + 1
-  ).padStart(2, "0")}-${String(
-    today.getDate()
-  ).padStart(2, "0")}`;
+        const todayKey = `${today.getFullYear()}-${String(
+          today.getMonth() + 1,
+        ).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
-  return task.date === todayKey && !task.completed;
-}
+        return task.date === todayKey && !task.completed;
+      }
 
-if (filter === "Próximas") {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+      if (filter === "Próximas") {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
-  const taskDate = new Date(`${task.date}T00:00:00`);
+        const taskDate = new Date(`${task.date}T00:00:00`);
 
-  return taskDate > today && !task.completed;
-}
+        return taskDate > today && !task.completed;
+      }
 
-if (filter === "Atrasadas") {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+      if (filter === "Atrasadas") {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
-  const taskDate = new Date(`${task.date}T00:00:00`);
+        const taskDate = new Date(`${task.date}T00:00:00`);
 
-  return taskDate < today && !task.completed;
-}
+        return taskDate < today && !task.completed;
+      }
 
       if (filter === "Concluídas") {
         return task.completed;
@@ -127,138 +120,115 @@ if (filter === "Atrasadas") {
   const completedCount = tasks.filter((task) => task.completed).length;
 
   function toggleTask(id: number) {
-  setTasks((current) => {
-    const updatedTasks = current.map((task) =>
-      task.id === id
-        ? { ...task, completed: !task.completed }
-        : task
-    );
+    setTasks((current) => {
+      const updatedTasks = current.map((task) =>
+        task.id === id ? { ...task, completed: !task.completed } : task,
+      );
 
-    const saved = localStorage.getItem("flow-tasks");
+      const saved = localStorage.getItem("flow-tasks");
 
-    if (saved) {
-      try {
-        const savedTasks = JSON.parse(saved);
+      if (saved) {
+        try {
+          const savedTasks = JSON.parse(saved);
 
-        if (Array.isArray(savedTasks)) {
-          const savedIds = new Set(
-            savedTasks.map((task) => task.id)
-          );
+          if (Array.isArray(savedTasks)) {
+            const savedIds = new Set(savedTasks.map((task) => task.id));
 
-          const updatedSavedTasks = updatedTasks.filter(
-            (task) => savedIds.has(task.id)
-          );
+            const updatedSavedTasks = updatedTasks.filter((task) =>
+              savedIds.has(task.id),
+            );
 
-          localStorage.setItem(
-            "flow-tasks",
-            JSON.stringify(updatedSavedTasks)
-          );
+            localStorage.setItem(
+              "flow-tasks",
+              JSON.stringify(updatedSavedTasks),
+            );
+          }
+        } catch {
+          console.error("Não foi possível atualizar a tarefa.");
         }
-      } catch {
-        console.error(
-          "Não foi possível atualizar a tarefa."
-        );
       }
-    }
 
-    return updatedTasks;
-  });
+      return updatedTasks;
+    });
 
-  setSelectedTask((current) => {
-    if (!current || current.id !== id) {
-      return current;
-    }
+    setSelectedTask((current) => {
+      if (!current || current.id !== id) {
+        return current;
+      }
 
-    return {
-      ...current,
-      completed: !current.completed,
-    };
-  });
-}
+      return {
+        ...current,
+        completed: !current.completed,
+      };
+    });
+  }
 
   function deleteTask(id: number) {
-  setTasks((current) => {
-    const updatedTasks = current.filter(
-      (task) => task.id !== id
-    );
+    setTasks((current) => {
+      const updatedTasks = current.filter((task) => task.id !== id);
 
-    const saved = localStorage.getItem("flow-tasks");
+      const saved = localStorage.getItem("flow-tasks");
 
-    if (saved) {
-      try {
-        const savedTasks = JSON.parse(saved);
+      if (saved) {
+        try {
+          const savedTasks = JSON.parse(saved);
 
-        if (Array.isArray(savedTasks)) {
-          const updatedSavedTasks = savedTasks.filter(
-            (task) => task.id !== id
-          );
+          if (Array.isArray(savedTasks)) {
+            const updatedSavedTasks = savedTasks.filter(
+              (task) => task.id !== id,
+            );
 
-          localStorage.setItem(
-            "flow-tasks",
-            JSON.stringify(updatedSavedTasks)
-          );
+            localStorage.setItem(
+              "flow-tasks",
+              JSON.stringify(updatedSavedTasks),
+            );
+          }
+        } catch {
+          console.error("Não foi possível excluir a tarefa.");
         }
-      } catch {
-        console.error(
-          "Não foi possível excluir a tarefa."
-        );
       }
-    }
 
-    return updatedTasks;
-  });
+      return updatedTasks;
+    });
 
-  setSelectedTask(null);
-}
+    setSelectedTask(null);
+  }
 
   return (
     <main className="min-h-screen bg-zinc-950 pb-32 text-zinc-100">
       <div className="mx-auto max-w-5xl px-6 py-8">
-
         {/* Cabeçalho */}
         <header>
-          <p className="text-sm text-zinc-500">
-            Sua organização
-          </p>
+          <p className="text-sm text-zinc-500">Sua organização</p>
 
           <div className="mt-2 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-           <div>
-             <h1 className="text-3xl font-semibold tracking-tight">
-               Tarefas
-             </h1>
+            <div>
+              <h1 className="text-3xl font-semibold tracking-tight">Tarefas</h1>
 
-             <p className="mt-2 text-sm text-zinc-400">
+              <p className="mt-2 text-sm text-zinc-400">
                 Tudo que precisa ser feito, sem perder o controle.
-             </p>
+              </p>
 
-             <a
-               href="/planejamento"
-               className="mt-4 inline-flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm font-medium text-zinc-200 transition hover:border-zinc-600 hover:bg-zinc-800"
+              <a
+                href="/planejamento"
+                className="mt-4 inline-flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm font-medium text-zinc-200 transition hover:border-zinc-600 hover:bg-zinc-800"
               >
-            <span>✦</span>
-               Planejamento
-             </a>
-          </div>
+                <span>✦</span>
+                Planejamento
+              </a>
+            </div>
 
             <div className="flex gap-2">
               <div className="rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3">
-                <p className="text-xs text-zinc-500">
-                  Pendentes
-                </p>
+                <p className="text-xs text-zinc-500">Pendentes</p>
 
-                <p className="mt-1 text-xl font-semibold">
-                  {pendingCount}
-                </p>
+                <p className="mt-1 text-xl font-semibold">{pendingCount}</p>
               </div>
 
               <div className="rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3">
-                <p className="text-xs text-zinc-500">
-                  Concluídas
-                </p>
+                <p className="text-xs text-zinc-500">Concluídas</p>
 
-                <p className="mt-1 text-xl font-semibold">
-                  {completedCount}
-                </p>
+                <p className="mt-1 text-xl font-semibold">{completedCount}</p>
               </div>
             </div>
           </div>
@@ -287,9 +257,7 @@ if (filter === "Atrasadas") {
         <section className="mt-6">
           {filteredTasks.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-zinc-800 bg-zinc-900/30 px-6 py-16 text-center">
-              <p className="text-lg font-medium">
-                Nenhuma tarefa aqui.
-              </p>
+              <p className="text-lg font-medium">Nenhuma tarefa aqui.</p>
 
               <p className="mt-2 text-sm text-zinc-500">
                 Quando houver algo para mostrar, aparecerá nesta lista.
@@ -320,9 +288,7 @@ if (filter === "Atrasadas") {
                       }`}
                     >
                       {task.completed && (
-                        <span className="text-xs font-bold">
-                          ✓
-                        </span>
+                        <span className="text-xs font-bold">✓</span>
                       )}
                     </button>
 
@@ -351,30 +317,26 @@ if (filter === "Atrasadas") {
 
                       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500">
                         <span>
-                          <span>
-  Prazo: {formatDate(task.date)}
-</span>
+                          <span>Prazo: {formatDate(task.date)}</span>
                         </span>
 
                         <span>
-  {task.durationMinutes >= 60
-    ? `${Math.floor(task.durationMinutes / 60)}h${
-        task.durationMinutes % 60
-          ? ` ${task.durationMinutes % 60}min`
-          : ""
-      }`
-    : `${task.durationMinutes}min`}
-</span>
-
-<span>
-  {task.hasTime && task.startTime
-    ? `às ${task.startTime}`
-    : "Sem horário"}
-</span>
+                          {task.durationMinutes >= 60
+                            ? `${Math.floor(task.durationMinutes / 60)}h${
+                                task.durationMinutes % 60
+                                  ? ` ${task.durationMinutes % 60}min`
+                                  : ""
+                              }`
+                            : `${task.durationMinutes}min`}
+                        </span>
 
                         <span>
-                          {task.category}
+                          {task.hasTime && task.startTime
+                            ? `às ${task.startTime}`
+                            : "Sem horário"}
                         </span>
+
+                        <span>{task.category}</span>
                       </div>
                     </button>
 
@@ -393,17 +355,13 @@ if (filter === "Atrasadas") {
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
             <div className="flex items-center gap-3">
               <span className="h-2.5 w-2.5 rounded-full bg-rose-400" />
-              <span className="text-sm text-zinc-400">
-                Alta prioridade
-              </span>
+              <span className="text-sm text-zinc-400">Alta prioridade</span>
             </div>
 
             <p className="mt-3 text-2xl font-semibold">
               {
                 tasks.filter(
-                  (task) =>
-                    task.priority === "Alta" &&
-                    !task.completed
+                  (task) => task.priority === "Alta" && !task.completed,
                 ).length
               }
             </p>
@@ -412,17 +370,13 @@ if (filter === "Atrasadas") {
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
             <div className="flex items-center gap-3">
               <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
-              <span className="text-sm text-zinc-400">
-                Média prioridade
-              </span>
+              <span className="text-sm text-zinc-400">Média prioridade</span>
             </div>
 
             <p className="mt-3 text-2xl font-semibold">
               {
                 tasks.filter(
-                  (task) =>
-                    task.priority === "Média" &&
-                    !task.completed
+                  (task) => task.priority === "Média" && !task.completed,
                 ).length
               }
             </p>
@@ -431,17 +385,13 @@ if (filter === "Atrasadas") {
           <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
             <div className="flex items-center gap-3">
               <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
-              <span className="text-sm text-zinc-400">
-                Baixa prioridade
-              </span>
+              <span className="text-sm text-zinc-400">Baixa prioridade</span>
             </div>
 
             <p className="mt-3 text-2xl font-semibold">
               {
                 tasks.filter(
-                  (task) =>
-                    task.priority === "Baixa" &&
-                    !task.completed
+                  (task) => task.priority === "Baixa" && !task.completed,
                 ).length
               }
             </p>
@@ -453,12 +403,9 @@ if (filter === "Atrasadas") {
       {selectedTask && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
           <div className="w-full max-w-lg rounded-3xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl">
-
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-sm text-zinc-500">
-                  {selectedTask.category}
-                </p>
+                <p className="text-sm text-zinc-500">{selectedTask.category}</p>
 
                 <h2 className="mt-2 text-2xl font-semibold">
                   {selectedTask.title}
@@ -478,66 +425,50 @@ if (filter === "Atrasadas") {
             </p>
 
             <div className="mt-6 grid grid-cols-2 gap-3">
-  <div className="rounded-2xl bg-zinc-950 p-4">
-    <p className="text-xs text-zinc-500">
-      Horário
-    </p>
+              <div className="rounded-2xl bg-zinc-950 p-4">
+                <p className="text-xs text-zinc-500">Horário</p>
 
-    <p className="mt-1 text-sm">
-      {selectedTask.hasTime && selectedTask.startTime
-        ? selectedTask.startTime
-        : "Sem horário"}
-    </p>
-  </div>
+                <p className="mt-1 text-sm">
+                  {selectedTask.hasTime && selectedTask.startTime
+                    ? selectedTask.startTime
+                    : "Sem horário"}
+                </p>
+              </div>
 
-  <div className="rounded-2xl bg-zinc-950 p-4">
-    <p className="text-xs text-zinc-500">
-      Prazo
-    </p>
+              <div className="rounded-2xl bg-zinc-950 p-4">
+                <p className="text-xs text-zinc-500">Prazo</p>
 
-    <p className="mt-1 text-sm">
-      {formatDate(selectedTask.date)}
-    </p>
-  </div>
+                <p className="mt-1 text-sm">{formatDate(selectedTask.date)}</p>
+              </div>
 
-  <div className="rounded-2xl bg-zinc-950 p-4">
-    <p className="text-xs text-zinc-500">
-      Duração
-    </p>
+              <div className="rounded-2xl bg-zinc-950 p-4">
+                <p className="text-xs text-zinc-500">Duração</p>
 
-    <p className="mt-1 text-sm">
-      {selectedTask.durationMinutes >= 60
-        ? `${Math.floor(selectedTask.durationMinutes / 60)}h${
-            selectedTask.durationMinutes % 60
-              ? ` ${selectedTask.durationMinutes % 60}min`
-              : ""
-          }`
-        : `${selectedTask.durationMinutes}min`}
-    </p>
-  </div>
+                <p className="mt-1 text-sm">
+                  {selectedTask.durationMinutes >= 60
+                    ? `${Math.floor(selectedTask.durationMinutes / 60)}h${
+                        selectedTask.durationMinutes % 60
+                          ? ` ${selectedTask.durationMinutes % 60}min`
+                          : ""
+                      }`
+                    : `${selectedTask.durationMinutes}min`}
+                </p>
+              </div>
 
-  <div className="rounded-2xl bg-zinc-950 p-4">
-    <p className="text-xs text-zinc-500">
-      Prioridade
-    </p>
+              <div className="rounded-2xl bg-zinc-950 p-4">
+                <p className="text-xs text-zinc-500">Prioridade</p>
 
-    <p className="mt-1 text-sm">
-      {selectedTask.priority}
-    </p>
-  </div>
+                <p className="mt-1 text-sm">{selectedTask.priority}</p>
+              </div>
 
-  <div className="col-span-2 rounded-2xl bg-zinc-950 p-4">
-    <p className="text-xs text-zinc-500">
-      Status
-    </p>
+              <div className="col-span-2 rounded-2xl bg-zinc-950 p-4">
+                <p className="text-xs text-zinc-500">Status</p>
 
-    <p className="mt-1 text-sm">
-      {selectedTask.completed
-        ? "Concluída"
-        : "Pendente"}
-    </p>
-  </div>
-</div>
+                <p className="mt-1 text-sm">
+                  {selectedTask.completed ? "Concluída" : "Pendente"}
+                </p>
+              </div>
+            </div>
 
             <div className="mt-6 flex flex-col gap-2 sm:flex-row">
               <button

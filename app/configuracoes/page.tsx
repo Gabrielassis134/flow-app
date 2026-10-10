@@ -36,8 +36,7 @@ function getSavedSettings(): Settings {
     return defaultSettings;
   }
 
-  const saved =
-    localStorage.getItem(SETTINGS_STORAGE_KEY);
+  const saved = localStorage.getItem(SETTINGS_STORAGE_KEY);
 
   if (!saved) {
     return defaultSettings;
@@ -56,10 +55,7 @@ function getSavedSettings(): Settings {
 }
 
 function saveSettings(settings: Settings) {
-  localStorage.setItem(
-    SETTINGS_STORAGE_KEY,
-    JSON.stringify(settings)
-  );
+  localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
 }
 
 function applyTheme(theme: Theme) {
@@ -79,34 +75,22 @@ function applyTheme(theme: Theme) {
     return;
   }
 
-  const prefersDark = window.matchMedia(
-    "(prefers-color-scheme: dark)"
-  ).matches;
+  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
 
-  const activeTheme = prefersDark
-    ? "dark"
-    : "light";
+  const activeTheme = prefersDark ? "dark" : "light";
 
-  root.setAttribute(
-    "data-theme",
-    activeTheme
-  );
+  root.setAttribute("data-theme", activeTheme);
 
-  root.classList.toggle(
-    "dark",
-    prefersDark
-  );
+  root.classList.toggle("dark", prefersDark);
 
   root.style.colorScheme = activeTheme;
 }
 
 export default function Configuracoes() {
-  const [settings, setSettings] =
-    useState<Settings>(defaultSettings);
+  const [settings, setSettings] = useState<Settings>(defaultSettings);
 
   useEffect(() => {
-    const savedSettings =
-      getSavedSettings();
+    const savedSettings = getSavedSettings();
 
     setSettings(savedSettings);
     applyTheme(savedSettings.theme);
@@ -119,10 +103,7 @@ export default function Configuracoes() {
   }, [settings.theme]);
 
   useEffect(() => {
-    const mediaQuery =
-      window.matchMedia(
-        "(prefers-color-scheme: dark)"
-      );
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
 
     function handleSystemTheme() {
       if (settings.theme === "system") {
@@ -130,24 +111,16 @@ export default function Configuracoes() {
       }
     }
 
-    mediaQuery.addEventListener(
-      "change",
-      handleSystemTheme
-    );
+    mediaQuery.addEventListener("change", handleSystemTheme);
 
     return () => {
-      mediaQuery.removeEventListener(
-        "change",
-        handleSystemTheme
-      );
+      mediaQuery.removeEventListener("change", handleSystemTheme);
     };
   }, [settings.theme]);
 
-  function updateSetting<
-    Key extends keyof Settings
-  >(
+  function updateSetting<Key extends keyof Settings>(
     key: Key,
-    value: Settings[Key]
+    value: Settings[Key],
   ) {
     setSettings((current) => {
       const updated = {
@@ -169,18 +142,14 @@ export default function Configuracoes() {
       | "groupReminders"
       | "privateSchedule"
       | "allowInvites"
-      | "searchableProfile"
+      | "searchableProfile",
   ) {
-    updateSetting(
-      key,
-      !settings[key]
-    );
+    updateSetting(key, !settings[key]);
   }
 
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-100">
       <div className="mx-auto max-w-3xl px-6 py-8">
-
         {/* Cabeçalho */}
         <header>
           <Link
@@ -190,9 +159,7 @@ export default function Configuracoes() {
             ← Voltar
           </Link>
 
-          <p className="mt-8 text-sm text-zinc-500">
-            Personalização
-          </p>
+          <p className="mt-8 text-sm text-zinc-500">Personalização</p>
 
           <h1 className="mt-2 text-3xl font-semibold tracking-tight">
             Configurações
@@ -205,11 +172,8 @@ export default function Configuracoes() {
 
         {/* Aparência */}
         <section className="mt-8 rounded-3xl border border-zinc-800 bg-zinc-900/70 p-6">
-
           <div>
-            <h2 className="text-lg font-medium">
-              Aparência
-            </h2>
+            <h2 className="text-lg font-medium">Aparência</h2>
 
             <p className="mt-1 text-sm text-zinc-400">
               Escolha como o Flow deve aparecer.
@@ -217,29 +181,19 @@ export default function Configuracoes() {
           </div>
 
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
-
             <button
-              onClick={() =>
-                updateSetting(
-                  "theme",
-                  "dark"
-                )
-              }
+              onClick={() => updateSetting("theme", "dark")}
               className={`rounded-2xl border p-4 text-left transition ${
                 settings.theme === "dark"
                   ? "border-zinc-300 bg-zinc-100 text-zinc-950"
                   : "border-zinc-800 bg-zinc-950 text-zinc-300 hover:border-zinc-600"
               }`}
             >
-              <p className="font-medium">
-                Escuro
-              </p>
+              <p className="font-medium">Escuro</p>
 
               <p
                 className={`mt-1 text-xs ${
-                  settings.theme === "dark"
-                    ? "text-zinc-600"
-                    : "text-zinc-500"
+                  settings.theme === "dark" ? "text-zinc-600" : "text-zinc-500"
                 }`}
               >
                 Sempre usar tema escuro.
@@ -247,27 +201,18 @@ export default function Configuracoes() {
             </button>
 
             <button
-              onClick={() =>
-                updateSetting(
-                  "theme",
-                  "light"
-                )
-              }
+              onClick={() => updateSetting("theme", "light")}
               className={`rounded-2xl border p-4 text-left transition ${
                 settings.theme === "light"
                   ? "border-zinc-300 bg-zinc-100 text-zinc-950"
                   : "border-zinc-800 bg-zinc-950 text-zinc-300 hover:border-zinc-600"
               }`}
             >
-              <p className="font-medium">
-                Claro
-              </p>
+              <p className="font-medium">Claro</p>
 
               <p
                 className={`mt-1 text-xs ${
-                  settings.theme === "light"
-                    ? "text-zinc-600"
-                    : "text-zinc-500"
+                  settings.theme === "light" ? "text-zinc-600" : "text-zinc-500"
                 }`}
               >
                 Sempre usar tema claro.
@@ -275,21 +220,14 @@ export default function Configuracoes() {
             </button>
 
             <button
-              onClick={() =>
-                updateSetting(
-                  "theme",
-                  "system"
-                )
-              }
+              onClick={() => updateSetting("theme", "system")}
               className={`rounded-2xl border p-4 text-left transition ${
                 settings.theme === "system"
                   ? "border-zinc-300 bg-zinc-100 text-zinc-950"
                   : "border-zinc-800 bg-zinc-950 text-zinc-300 hover:border-zinc-600"
               }`}
             >
-              <p className="font-medium">
-                Automático
-              </p>
+              <p className="font-medium">Automático</p>
 
               <p
                 className={`mt-1 text-xs ${
@@ -301,17 +239,13 @@ export default function Configuracoes() {
                 Seguir o tema do dispositivo.
               </p>
             </button>
-
           </div>
         </section>
 
         {/* Notificações */}
         <section className="mt-4 rounded-3xl border border-zinc-800 bg-zinc-900/70 p-6">
-
           <div>
-            <h2 className="text-lg font-medium">
-              Notificações
-            </h2>
+            <h2 className="text-lg font-medium">Notificações</h2>
 
             <p className="mt-1 text-sm text-zinc-400">
               Controle os lembretes que o Flow poderá enviar.
@@ -319,81 +253,45 @@ export default function Configuracoes() {
           </div>
 
           <div className="mt-5 divide-y divide-zinc-800">
-
             <SettingRow
               title="Notificações"
               description="Permitir que o Flow envie notificações."
-              enabled={
-                settings.notificationsEnabled
-              }
-              onClick={() =>
-                toggleSetting(
-                  "notificationsEnabled"
-                )
-              }
+              enabled={settings.notificationsEnabled}
+              onClick={() => toggleSetting("notificationsEnabled")}
             />
 
             <SettingRow
               title="Lembretes de tarefas"
               description="Receber lembretes relacionados às suas tarefas."
-              enabled={
-                settings.taskReminders &&
-                settings.notificationsEnabled
-              }
-              disabled={
-                !settings.notificationsEnabled
-              }
-              onClick={() =>
-                toggleSetting(
-                  "taskReminders"
-                )
-              }
+              enabled={settings.taskReminders && settings.notificationsEnabled}
+              disabled={!settings.notificationsEnabled}
+              onClick={() => toggleSetting("taskReminders")}
             />
 
             <SettingRow
               title="Lembretes de compromissos"
               description="Receber lembretes antes dos seus compromissos."
               enabled={
-                settings.activityReminders &&
-                settings.notificationsEnabled
+                settings.activityReminders && settings.notificationsEnabled
               }
-              disabled={
-                !settings.notificationsEnabled
-              }
-              onClick={() =>
-                toggleSetting(
-                  "activityReminders"
-                )
-              }
+              disabled={!settings.notificationsEnabled}
+              onClick={() => toggleSetting("activityReminders")}
             />
 
             <SettingRow
               title="Lembretes de grupos"
               description="Receber notificações sobre atividades de grupo."
-              enabled={
-                settings.groupReminders &&
-                settings.notificationsEnabled
-              }
-              disabled={
-                !settings.notificationsEnabled
-              }
-              onClick={() =>
-                toggleSetting(
-                  "groupReminders"
-                )
-              }
+              enabled={settings.groupReminders && settings.notificationsEnabled}
+              disabled={!settings.notificationsEnabled}
+              onClick={() => toggleSetting("groupReminders")}
             />
-
           </div>
         </section>
 
         {/* Privacidade */}
         <section className="mt-4 rounded-3xl border border-zinc-800 bg-zinc-900/70 p-6">
-
           <div>
-            <h2 className="text-lg font-medium">
-              Privacidade
-            </h2>
+            <h2 className="text-lg font-medium">Privacidade</h2>
 
             <p className="mt-1 text-sm text-zinc-400">
               Controle como suas informações poderão ser compartilhadas.
@@ -401,56 +299,33 @@ export default function Configuracoes() {
           </div>
 
           <div className="mt-5 divide-y divide-zinc-800">
-
             <SettingRow
               title="Agenda pessoal privada"
               description="Outras pessoas não poderão visualizar seus compromissos pessoais."
-              enabled={
-                settings.privateSchedule
-              }
-              onClick={() =>
-                toggleSetting(
-                  "privateSchedule"
-                )
-              }
+              enabled={settings.privateSchedule}
+              onClick={() => toggleSetting("privateSchedule")}
             />
 
             <SettingRow
               title="Permitir convites"
               description="Permitir que outras pessoas enviem convites para você."
-              enabled={
-                settings.allowInvites
-              }
-              onClick={() =>
-                toggleSetting(
-                  "allowInvites"
-                )
-              }
+              enabled={settings.allowInvites}
+              onClick={() => toggleSetting("allowInvites")}
             />
 
             <SettingRow
               title="Permitir que encontrem meu usuário"
               description="Permitir que seu usuário seja encontrado para convites e grupos."
-              enabled={
-                settings.searchableProfile
-              }
-              onClick={() =>
-                toggleSetting(
-                  "searchableProfile"
-                )
-              }
+              enabled={settings.searchableProfile}
+              onClick={() => toggleSetting("searchableProfile")}
             />
-
           </div>
         </section>
 
         {/* Semana */}
         <section className="mt-4 rounded-3xl border border-zinc-800 bg-zinc-900/70 p-6">
-
           <div>
-            <h2 className="text-lg font-medium">
-              Calendário
-            </h2>
+            <h2 className="text-lg font-medium">Calendário</h2>
 
             <p className="mt-1 text-sm text-zinc-400">
               Defina como a semana deve começar.
@@ -458,29 +333,19 @@ export default function Configuracoes() {
           </div>
 
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
-
             <button
-              onClick={() =>
-                updateSetting(
-                  "weekStartsOn",
-                  "sunday"
-                )
-              }
+              onClick={() => updateSetting("weekStartsOn", "sunday")}
               className={`rounded-2xl border p-4 text-left transition ${
-                settings.weekStartsOn ===
-                "sunday"
+                settings.weekStartsOn === "sunday"
                   ? "border-zinc-300 bg-zinc-100 text-zinc-950"
                   : "border-zinc-800 bg-zinc-950 text-zinc-300 hover:border-zinc-600"
               }`}
             >
-              <p className="font-medium">
-                Domingo
-              </p>
+              <p className="font-medium">Domingo</p>
 
               <p
                 className={`mt-1 text-xs ${
-                  settings.weekStartsOn ===
-                  "sunday"
+                  settings.weekStartsOn === "sunday"
                     ? "text-zinc-600"
                     : "text-zinc-500"
                 }`}
@@ -490,27 +355,18 @@ export default function Configuracoes() {
             </button>
 
             <button
-              onClick={() =>
-                updateSetting(
-                  "weekStartsOn",
-                  "monday"
-                )
-              }
+              onClick={() => updateSetting("weekStartsOn", "monday")}
               className={`rounded-2xl border p-4 text-left transition ${
-                settings.weekStartsOn ===
-                "monday"
+                settings.weekStartsOn === "monday"
                   ? "border-zinc-300 bg-zinc-100 text-zinc-950"
                   : "border-zinc-800 bg-zinc-950 text-zinc-300 hover:border-zinc-600"
               }`}
             >
-              <p className="font-medium">
-                Segunda
-              </p>
+              <p className="font-medium">Segunda</p>
 
               <p
                 className={`mt-1 text-xs ${
-                  settings.weekStartsOn ===
-                  "monday"
+                  settings.weekStartsOn === "monday"
                     ? "text-zinc-600"
                     : "text-zinc-500"
                 }`}
@@ -518,17 +374,13 @@ export default function Configuracoes() {
                 A semana começa na segunda-feira.
               </p>
             </button>
-
           </div>
         </section>
 
         {/* Conta */}
         <section className="mt-4 rounded-3xl border border-zinc-800 bg-zinc-900/70 p-6">
-
           <div>
-            <h2 className="text-lg font-medium">
-              Conta
-            </h2>
+            <h2 className="text-lg font-medium">Conta</h2>
 
             <p className="mt-1 text-sm text-zinc-400">
               Sua conta e sincronização aparecerão aqui.
@@ -536,60 +388,41 @@ export default function Configuracoes() {
           </div>
 
           <div className="mt-5 rounded-2xl border border-zinc-800 bg-zinc-950 p-5">
-
             <div className="flex items-center gap-4">
-
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-800 text-lg">
                 F
               </div>
 
               <div>
-                <p className="font-medium">
-                  Conta local
-                </p>
+                <p className="font-medium">Conta local</p>
 
                 <p className="mt-1 text-sm text-zinc-500">
                   Seus dados estão salvos neste dispositivo.
                 </p>
               </div>
-
             </div>
 
             <div className="mt-5 rounded-2xl bg-zinc-900 p-4">
-
-              <p className="text-sm font-medium">
-                Sincronização online
-              </p>
+              <p className="text-sm font-medium">Sincronização online</p>
 
               <p className="mt-1 text-sm leading-6 text-zinc-500">
-                Em breve você poderá entrar na sua conta
-                e acessar seus dados em qualquer dispositivo.
+                Em breve você poderá entrar na sua conta e acessar seus dados em
+                qualquer dispositivo.
               </p>
-
             </div>
-
           </div>
         </section>
 
         {/* Informações */}
         <section className="mt-4 rounded-3xl border border-zinc-800 bg-zinc-900/70 p-6">
-
-          <h2 className="text-lg font-medium">
-            Sobre o Flow
-          </h2>
+          <h2 className="text-lg font-medium">Sobre o Flow</h2>
 
           <div className="mt-4 space-y-2 text-sm text-zinc-500">
-            <p>
-              Flow — Organize sua rotina. Viva seu tempo.
-            </p>
+            <p>Flow — Organize sua rotina. Viva seu tempo.</p>
 
-            <p>
-              Suas preferências são salvas automaticamente.
-            </p>
+            <p>Suas preferências são salvas automaticamente.</p>
           </div>
-
         </section>
-
       </div>
     </main>
   );
@@ -617,39 +450,23 @@ function SettingRow({
       }`}
     >
       <div className="min-w-0">
-        <p className="font-medium">
-          {title}
-        </p>
+        <p className="font-medium">{title}</p>
 
-        <p className="mt-1 text-sm leading-5 text-zinc-500">
-          {description}
-        </p>
+        <p className="mt-1 text-sm leading-5 text-zinc-500">{description}</p>
       </div>
 
       <button
         type="button"
         disabled={disabled}
         onClick={onClick}
-        aria-label={`${title}: ${
-          enabled
-            ? "ativado"
-            : "desativado"
-        }`}
+        aria-label={`${title}: ${enabled ? "ativado" : "desativado"}`}
         className={`flow-setting-toggle relative h-7 w-12 shrink-0 rounded-full transition ${
-          enabled
-            ? "flow-setting-toggle-on"
-            : ""
-        } ${
-          disabled
-            ? "cursor-not-allowed"
-            : "cursor-pointer"
-        }`}
+          enabled ? "flow-setting-toggle-on" : ""
+        } ${disabled ? "cursor-not-allowed" : "cursor-pointer"}`}
       >
         <span
           className={`flow-setting-thumb absolute top-1 h-5 w-5 rounded-full transition ${
-            enabled
-              ? "left-6"
-              : "left-1"
+            enabled ? "left-6" : "left-1"
           }`}
         />
       </button>

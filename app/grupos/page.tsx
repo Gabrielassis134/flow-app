@@ -4,16 +4,11 @@ export default function Grupos() {
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-100">
       <div className="mx-auto max-w-7xl px-6 py-8">
-
         <header className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-zinc-500">
-              Flow
-            </p>
+            <p className="text-sm text-zinc-500">Flow</p>
 
-            <h1 className="mt-1 text-3xl font-semibold">
-              Grupos
-            </h1>
+            <h1 className="mt-1 text-3xl font-semibold">Grupos</h1>
           </div>
 
           <Link
@@ -25,9 +20,7 @@ export default function Grupos() {
         </header>
 
         <div className="mt-10 rounded-3xl border border-zinc-800 bg-zinc-900 p-6">
-          <h2 className="text-xl font-medium">
-            Meus grupos
-          </h2>
+          <h2 className="text-xl font-medium">Meus grupos</h2>
 
           <p className="mt-2 text-sm text-zinc-400">
             Seus grupos aparecerão aqui.
@@ -37,7 +30,6 @@ export default function Grupos() {
             + Criar grupo
           </button>
         </div>
-
       </div>
     </main>
   );
