@@ -215,24 +215,86 @@ html[data-theme="light"] [class~="focus:border-zinc-600"]:focus {
    BOTÕES ON/OFF DAS CONFIGURAÇÕES
 ========================================================= */
 
-html[data-theme="light"] .flow-setting-toggle {
-  background-color: #e0e5eb !important;
-  border: 1px solid #cbd2da !important;
+/* Aparência padrão: tema escuro */
+
+.flow-setting-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+  width: 3rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 1px solid #52525b;
+  border-radius: 9999px;
+  background-color: #3f3f46;
+  box-sizing: border-box;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
 }
 
-html[data-theme="light"] .flow-setting-toggle-on {
-  background-color: #b8d1ee !important;
-  border-color: #a2bfdf !important;
+.flow-setting-toggle-on {
+  background-color: #2563eb;
+  border-color: #3b82f6;
+}
+
+.flow-setting-thumb {
+  position: absolute;
+  top: 0.1875rem;
+  left: 0.1875rem;
+  display: block;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 1px solid #d4d4d8;
+  border-radius: 9999px;
+  background-color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  box-sizing: border-box;
+  transition:
+    left 0.2s ease,
+    background-color 0.2s ease;
+}
+
+/* Posição da bolinha quando ativado */
+
+.flow-setting-toggle .flow-setting-thumb.left-6 {
+  left: 1.5rem;
+}
+
+/* Tema claro */
+
+html[data-theme="light"] .flow-setting-toggle {
+  background-color: #e0e5eb !important;
+  border-color: #cbd2da !important;
+}
+
+html[data-theme="light"] .flow-setting-toggle.flow-setting-toggle-on {
+  background-color: #2563eb !important;
+  border-color: #2563eb !important;
 }
 
 html[data-theme="light"] .flow-setting-thumb {
   background-color: #ffffff !important;
-  border: 1px solid #c3cad4 !important;
+  border-color: #c3cad4 !important;
   box-shadow: 0 1px 3px rgba(30, 41, 59, 0.18);
 }
 
+/* Foco acessível pelo teclado */
+
+.flow-setting-toggle:focus-visible {
+  outline: 2px solid #60a5fa;
+  outline-offset: 3px;
+}
+
+/* Controles desabilitados */
+
+.flow-setting-toggle:disabled {
+  cursor: not-allowed;
+}
+
 /* =========================================================
-   BARRA INFERIOR
+   BARRA DE NAVEGAÇÃO LEGADA
 ========================================================= */
 
 html[data-theme="light"] .flow-bottom-nav {
@@ -281,7 +343,7 @@ html[data-theme="light"] .flow-modal-content {
 }
 
 /* =========================================================
-   TRANSIÇÕES
+   TRANSIÇÕES E ACESSIBILIDADE
 ========================================================= */
 
 html,
@@ -289,4 +351,11 @@ body {
   transition:
     background-color 0.2s ease,
     color 0.2s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flow-setting-toggle,
+  .flow-setting-thumb {
+    transition: none;
+  }
 }
