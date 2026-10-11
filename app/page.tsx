@@ -49,14 +49,14 @@ function getTaskEnd(task: Task) {
 function activityOccursOnDate(activity: Activity, date: Date) {
   const activityDate = new Date(`${activity.date}T00:00:00`);
 
-  if (date < activityDate) return false;
+  if (dateKey(date) < dateKey(activityDate)) return false;
 
   if (activity.recurrenceEnd === "date" && activity.recurrenceEndDate) {
     const recurrenceEndDate = new Date(
       `${activity.recurrenceEndDate}T00:00:00`,
     );
 
-    if (date > recurrenceEndDate) return false;
+    if (dateKey(date) > dateKey(recurrenceEndDate)) return false;
   }
 
   const dayOfWeek = date.getDay();
@@ -102,7 +102,6 @@ function getTimeUntil(start: string, now: Date) {
   const difference = startMinutes - currentMinutes;
 
   if (difference <= 0) return "agora";
-
   if (difference < 60) return `em ${difference}min`;
 
   const hours = Math.floor(difference / 60);
@@ -195,7 +194,6 @@ export default function Home() {
       setNow(new Date());
     }, 60000);
 
-    // Atualiza os dados ao voltar para esta aba do navegador.
     const handleVisibilityChange = () => {
       if (document.visibilityState === "visible") {
         setNow(new Date());
@@ -295,154 +293,199 @@ export default function Home() {
 
   if (checkingAuth) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-zinc-950 text-zinc-100">
-        <p className="text-sm text-zinc-400">Verificando sua sessão...</p>
+      <main className="min-h-screen bg-zinc-950 px-4 pt-16 text-zinc-100 sm:px-6">
+        <div className="mx-auto flex min-h-[60vh] max-w-7xl items-center justify-center">
+          <p className="text-sm text-zinc-400">Verificando sua sessão...</p>
+        </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-zinc-950 text-zinc-100">
-      <div className="mx-auto flex min-h-screen max-w-7xl flex-col px-6 py-8 pb-32">
-        <header className="flex items-center justify-between">
-          <Link href="/">
-            <div>
-              <h1 className="text-2xl font-semibold tracking-tight">Flow</h1>
-              <p className="mt-1 text-sm text-zinc-400">
-                Organize sua rotina. Viva seu tempo.
-              </p>
-            </div>
-          </Link>
+    <main className="min-h-screen bg-zinc-950 pb-12 text-zinc-100">
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
+        <header className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-sm text-zinc-400">Seu planejamento</p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight">
+              {greeting} 👋
+            </h1>
+            <p className="mt-2 max-w-xl text-sm text-zinc-400 sm:text-base">
+              Aqui está um resumo do que está acontecendo com você hoje.
+            </p>
+          </div>
 
           <Link
             href="/configuracoes"
-            className="rounded-xl border border-zinc-800 bg-zinc-900 px-4 py-2 text-sm text-zinc-300 transition hover:bg-zinc-800"
+            className="inline-flex shrink-0 items-center justify-center rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 text-sm font-medium transition hover:bg-zinc-800"
           >
             Configurações
           </Link>
         </header>
 
-        <section className="mt-12">
-          <p className="text-sm text-zinc-400">{formatLongDate(today)}</p>
+        <section className="mt-8">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm text-zinc-400">Hoje</p>
+              <h2 className="mt-1 text-xl font-semibold">
+                {formatLongDate(today)}
+              </h2>
+            </div>
 
-          <h2 className="mt-2 text-4xl font-semibold tracking-tight">
-            {greeting} 👋
-          </h2>
+            <Link
+              href="/agenda"
+              className="rounded-xl border border-zinc-800 px-4 py-2 text-sm text-zinc-300 transition hover:bg-zinc-900"
+            >
+              Ver agenda →
+            </Link>
+          </div>
 
-          <p className="mt-3 max-w-xl text-zinc-400">
-            Aqui está um resumo do que está acontecendo com você hoje.
-          </p>
+          {dataError && (
+            <div
+              role="alert"
+              className="mt-5 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-300"
+            >
+              <p>Não foi possível atualizar os dados da página inicial.</p>
+              <p className="mt-1 break-words">{dataError}</p>
+              <button
+                type="button"
+                onClick={() => void loadData()}
+                className="mt-3 underline"
+              >
+                Tentar novamente
+              </button>
+            </div>
+          )}
         </section>
 
-        {dataError && (
-          <section
-            role="alert"
-            className="mt-6 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-300"
+        <section className="mt-6">
+          <Link
+            href="/agenda"
+            className="block rounded-3xl border border-zinc-800 bg-zinc-900/60 p-5 transition hover:border-zinc-700 hover:bg-zinc-900 sm:p-6"
           >
-            <p>Não foi possível atualizar os dados da página inicial.</p>
-            <p className="mt-1 break-words">{dataError}</p>
-            <button
-              type="button"
-              onClick={() => void loadData()}
-              className="mt-3 underline"
-            >
-              Tentar novamente
-            </button>
-          </section>
-        )}
-
-        <section className="mt-10">
-          <Link href="/agenda">
-            <div className="rounded-3xl border border-zinc-800 bg-zinc-900/70 p-6 shadow-xl transition hover:border-zinc-700 hover:bg-zinc-900">
-              {loadingData ? (
-                <div>
+            {loadingData ? (
+              <>
+                <p className="text-sm text-zinc-400">Próxima atividade</p>
+                <h3 className="mt-2 text-xl font-semibold">
+                  Carregando sua agenda...
+                </h3>
+              </>
+            ) : nextItem ? (
+              <div className="flex items-center justify-between gap-4">
+                <div className="min-w-0">
                   <p className="text-sm text-zinc-400">Próxima atividade</p>
-                  <h3 className="mt-2 text-xl font-medium">
-                    Carregando sua agenda...
-                  </h3>
-                </div>
-              ) : nextItem ? (
-                <div className="flex items-center justify-between gap-6">
-                  <div className="min-w-0">
-                    <p className="text-sm text-zinc-400">Próxima atividade</p>
-                    <h3 className="mt-2 truncate text-2xl font-medium">
-                      {nextItem.title}
-                    </h3>
-                    <p className="mt-2 text-sm text-zinc-400">
-                      Hoje · {nextItem.start}
-                      {nextItem.end ? ` – ${nextItem.end}` : ""}
-                    </p>
-                  </div>
-
-                  <div className="shrink-0 rounded-2xl bg-zinc-800 px-4 py-3 text-center">
-                    <p className="text-xs text-zinc-400">Em</p>
-                    <p className="mt-1 text-lg font-semibold">
-                      {now ? getTimeUntil(nextItem.start, now) : "..."}
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div>
-                  <p className="text-sm text-zinc-400">Próxima atividade</p>
-                  <h3 className="mt-2 text-2xl font-medium">
-                    Nada agendado por enquanto
+                  <h3 className="mt-2 truncate text-xl font-semibold sm:text-2xl">
+                    {nextItem.title}
                   </h3>
                   <p className="mt-2 text-sm text-zinc-400">
-                    Seu dia está livre. Aproveite ou planeje alguma coisa.
+                    Hoje · {nextItem.start}
+                    {nextItem.end ? ` – ${nextItem.end}` : ""}
+                  </p>
+                  <p className="mt-2 text-sm text-zinc-500">
+                    {nextItem.category}
+                    {nextItem.type === "task" ? " · Tarefa" : ""}
                   </p>
                 </div>
-              )}
-            </div>
+
+                <div className="shrink-0 rounded-2xl border border-zinc-800 bg-zinc-950 px-3 py-3 text-center sm:px-5">
+                  <p className="text-xs text-zinc-500">Em</p>
+                  <p className="mt-1 text-sm font-semibold sm:text-base">
+                    {now ? getTimeUntil(nextItem.start, now) : "..."}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <p className="text-sm text-zinc-400">Próxima atividade</p>
+                <h3 className="mt-2 text-xl font-semibold sm:text-2xl">
+                  Nada agendado por enquanto
+                </h3>
+                <p className="mt-2 text-sm text-zinc-400">
+                  Seu dia está livre. Aproveite ou planeje alguma coisa.
+                </p>
+                <span className="mt-4 inline-flex rounded-xl border border-zinc-700 px-4 py-2 text-sm transition hover:bg-zinc-800">
+                  + Planejar atividade
+                </span>
+              </>
+            )}
           </Link>
         </section>
 
-        <section className="mt-6 grid gap-6 md:grid-cols-2">
-          <div className="rounded-3xl border border-zinc-800 bg-zinc-900/60 p-6">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium">Hoje</h3>
-              <Link
-                href="/agenda"
-                className="text-sm text-zinc-400 hover:text-zinc-200"
-              >
-                Ver agenda
-              </Link>
+        <section className="mt-6 grid gap-5 md:grid-cols-2">
+          <div className="rounded-3xl border border-zinc-800 bg-zinc-900/50 p-4 sm:p-6">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm text-zinc-400">Sua rotina</p>
+                <h2 className="mt-1 text-xl font-semibold">Agenda de hoje</h2>
+              </div>
+              <span className="rounded-xl bg-zinc-800 px-3 py-2 text-xs text-zinc-400">
+                {agendaItems.length}
+              </span>
             </div>
 
-            <div className="mt-5 space-y-4">
+            <div className="mt-5 space-y-3">
               {loadingData ? (
-                <p className="text-sm text-zinc-500">Carregando agenda...</p>
+                <div className="rounded-2xl border border-zinc-800 p-4 text-sm text-zinc-500">
+                  Carregando agenda...
+                </div>
               ) : agendaItems.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-zinc-800 p-5 text-center">
-                  <p className="text-sm text-zinc-500">
+                <div className="rounded-2xl border border-dashed border-zinc-700 p-5 text-center">
+                  <p className="text-sm text-zinc-400">
                     Nenhuma atividade agendada para hoje.
                   </p>
+                  <Link
+                    href="/criar/compromisso"
+                    className="mt-3 inline-block text-sm text-sky-300 hover:text-sky-200"
+                  >
+                    + Adicionar atividade
+                  </Link>
                 </div>
               ) : (
                 agendaItems.map((item) => (
-                  <div key={item.id} className="flex gap-4">
-                    <div className="w-14 shrink-0 text-sm text-zinc-500">
+                  <div
+                    key={item.id}
+                    className="flex items-start gap-3 rounded-2xl border border-zinc-800 bg-zinc-950/60 p-3 sm:gap-4 sm:p-4"
+                  >
+                    <div className="w-12 shrink-0 pt-0.5 text-sm font-medium text-zinc-400 sm:w-14">
                       {item.start}
                     </div>
 
-                    <div className="min-w-0 flex-1 rounded-2xl bg-zinc-800/70 p-4">
+                    <div className="min-w-0 flex-1">
                       <p className="truncate font-medium">{item.title}</p>
-                      <p className="mt-1 text-sm text-zinc-400">
+                      <p className="mt-1 text-sm text-zinc-500">
                         {item.category}
                         {item.type === "task" ? " · Tarefa" : ""}
                       </p>
+                      {item.end && (
+                        <p className="mt-1 text-xs text-zinc-500">
+                          Até {item.end}
+                        </p>
+                      )}
                     </div>
                   </div>
                 ))
               )}
             </div>
+
+            <Link
+              href="/agenda"
+              className="mt-4 inline-flex text-sm text-zinc-400 transition hover:text-zinc-200"
+            >
+              Abrir agenda completa →
+            </Link>
           </div>
 
-          <div className="rounded-3xl border border-zinc-800 bg-zinc-900/60 p-6">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium">Tarefas</h3>
+          <div className="rounded-3xl border border-zinc-800 bg-zinc-900/50 p-4 sm:p-6">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm text-zinc-400">Seu planejamento</p>
+                <h2 className="mt-1 text-xl font-semibold">
+                  Tarefas pendentes
+                </h2>
+              </div>
               <Link
                 href="/tarefas"
-                className="text-sm text-zinc-400 hover:text-zinc-200"
+                className="rounded-xl border border-zinc-800 px-3 py-2 text-sm text-zinc-300 transition hover:bg-zinc-800"
               >
                 Ver todas
               </Link>
@@ -450,36 +493,59 @@ export default function Home() {
 
             <div className="mt-5 space-y-3">
               {loadingData ? (
-                <p className="text-sm text-zinc-500">Carregando tarefas...</p>
+                <div className="rounded-2xl border border-zinc-800 p-4 text-sm text-zinc-500">
+                  Carregando tarefas...
+                </div>
               ) : pendingTasks.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-zinc-800 p-5 text-center">
-                  <p className="text-sm text-zinc-500">
+                <div className="rounded-2xl border border-dashed border-zinc-700 p-5 text-center">
+                  <p className="text-sm text-zinc-400">
                     Você não tem tarefas pendentes.
                   </p>
+                  <Link
+                    href="/criar"
+                    className="mt-3 inline-block text-sm text-sky-300 hover:text-sky-200"
+                  >
+                    + Criar tarefa
+                  </Link>
                 </div>
               ) : (
                 pendingTasks.map((task) => (
                   <Link
                     href="/tarefas"
                     key={task.id}
-                    className="flex items-center gap-3 rounded-2xl bg-zinc-800/70 p-4 transition hover:bg-zinc-800"
+                    className="flex items-center gap-3 rounded-2xl border border-zinc-800 bg-zinc-950/60 p-3 transition hover:bg-zinc-800/70 sm:p-4"
                   >
-                    <div className="h-5 w-5 shrink-0 rounded-full border border-zinc-600" />
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-zinc-800 text-sm text-zinc-300">
+                      {task.priority === "Alta"
+                        ? "!"
+                        : task.priority === "Média"
+                          ? "•"
+                          : "–"}
+                    </span>
 
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className="truncate font-medium">{task.title}</p>
-                      <p className="text-sm text-zinc-400">
+                      <p className="mt-1 text-sm text-zinc-500">
                         {task.duration ||
                           (task.durationMinutes
-                            ? `${task.durationMinutes}min`
+                            ? `${task.durationMinutes} min`
                             : "Sem duração")}{" "}
                         · {task.priority}
                       </p>
                     </div>
+
+                    <span className="shrink-0 text-zinc-500">›</span>
                   </Link>
                 ))
               )}
             </div>
+
+            <Link
+              href="/tarefas"
+              className="mt-4 inline-flex text-sm text-zinc-400 transition hover:text-zinc-200"
+            >
+              Abrir lista de tarefas →
+            </Link>
           </div>
         </section>
       </div>

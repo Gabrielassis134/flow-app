@@ -13,7 +13,9 @@ export default function LayoutShell({
 
   return (
     <>
-      <div className={isLoginPage ? "" : "pb-24"}>{children}</div>
+      <main className={isLoginPage ? "min-h-screen" : "min-h-screen pt-16"}>
+        {children}
+      </main>
 
       {!isLoginPage && <BottomNav />}
     </>
