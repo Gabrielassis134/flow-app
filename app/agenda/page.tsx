@@ -262,9 +262,7 @@ export default function AgendaPage() {
   }
 
   async function deleteSelectedActivity() {
-    if (!selectedActivity) {
-      return;
-    }
+    if (!selectedActivity) return;
 
     if (selectedActivity.isTask) {
       setSelectedActivity(null);
@@ -312,38 +310,46 @@ export default function AgendaPage() {
     }
   }
 
-  return (
-    <main className="min-h-screen bg-zinc-950 pb-28 text-zinc-100">
-      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
-        <header className="flex items-center justify-between gap-4">
-          <div>
-            <Link
-              href="/"
-              className="text-sm text-zinc-400 transition hover:text-white"
-            >
-              ← Voltar ao início
-            </Link>
+  const cardClass = "rounded-3xl border border-zinc-800 bg-zinc-900/60";
+  const secondaryButtonClass =
+    "rounded-xl border border-zinc-700 px-4 py-2 text-sm text-zinc-200 transition hover:bg-zinc-800";
+  const primaryButtonClass =
+    "shrink-0 rounded-xl bg-zinc-100 px-4 py-3 text-sm font-medium text-zinc-950 transition hover:bg-white";
 
-            <h1 className="mt-3 text-3xl font-semibold tracking-tight">
+  return (
+    <main className="min-h-screen bg-zinc-950 pb-10 text-zinc-100">
+      <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
+        <header className="flex flex-col justify-between gap-5 sm:flex-row sm:items-start">
+          <div>
+            <p className="text-sm text-zinc-400">Seu planejamento</p>
+
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight">
               Minha agenda
             </h1>
 
             <p className="mt-2 text-sm text-zinc-400">
               Seus compromissos, no seu ritmo.
             </p>
+
+            <Link
+              href="/"
+              className="mt-3 inline-block text-sm text-zinc-400 transition hover:text-zinc-100"
+            >
+              ← Voltar ao início
+            </Link>
           </div>
 
           <button
             onClick={() => router.push("/criar/compromisso")}
-            className="shrink-0 rounded-2xl bg-sky-400 px-4 py-3 text-sm font-semibold text-zinc-950 transition hover:bg-sky-300"
+            className={primaryButtonClass}
           >
             + Nova atividade
           </button>
         </header>
 
-        <section className="mt-8 rounded-3xl border border-zinc-800 bg-zinc-900/60 p-4 sm:p-6">
+        <section className={`${cardClass} mt-7 p-4 sm:p-6`}>
           <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-            <div>
+            <div className="min-w-0">
               <p className="text-sm text-zinc-400">Período selecionado</p>
               <h2 className="mt-1 text-xl font-semibold capitalize">
                 {heading}
@@ -354,14 +360,14 @@ export default function AgendaPage() {
               <button
                 onClick={() => moveDate(-1)}
                 aria-label="Período anterior"
-                className="rounded-xl border border-zinc-700 px-4 py-2 transition hover:bg-zinc-800"
+                className={secondaryButtonClass}
               >
                 ←
               </button>
 
               <button
                 onClick={() => setSelectedDate(new Date())}
-                className="rounded-xl border border-zinc-700 px-4 py-2 text-sm transition hover:bg-zinc-800"
+                className={secondaryButtonClass}
               >
                 Hoje
               </button>
@@ -369,22 +375,22 @@ export default function AgendaPage() {
               <button
                 onClick={() => moveDate(1)}
                 aria-label="Próximo período"
-                className="rounded-xl border border-zinc-700 px-4 py-2 transition hover:bg-zinc-800"
+                className={secondaryButtonClass}
               >
                 →
               </button>
             </div>
           </div>
 
-          <div className="mt-5 grid grid-cols-3 gap-2 rounded-2xl bg-zinc-950 p-1">
+          <div className="mt-5 grid grid-cols-3 gap-1 rounded-2xl bg-zinc-950 p-1">
             {(["Dia", "Semana", "Mês"] as const).map((option) => (
               <button
                 key={option}
                 onClick={() => setView(option)}
                 className={`rounded-xl px-3 py-2.5 text-sm transition ${
                   view === option
-                    ? "bg-zinc-800 font-medium text-white"
-                    : "text-zinc-400 hover:text-white"
+                    ? "bg-zinc-800 font-medium text-zinc-100"
+                    : "text-zinc-400 hover:bg-zinc-900 hover:text-zinc-100"
                 }`}
               >
                 {option}
@@ -403,9 +409,10 @@ export default function AgendaPage() {
                 <button
                   key={dateKey(date)}
                   onClick={() => setSelectedDate(date)}
+                  aria-pressed={active}
                   className={`min-w-0 rounded-2xl border p-2 text-center transition sm:p-4 ${
                     active
-                      ? "border-sky-400 bg-sky-400/10"
+                      ? "border-zinc-500 bg-zinc-800"
                       : "border-zinc-800 bg-zinc-900/60 hover:bg-zinc-900"
                   }`}
                 >
@@ -413,11 +420,7 @@ export default function AgendaPage() {
                     {shortDays[index]}
                   </span>
 
-                  <span
-                    className={`mt-2 block text-lg font-semibold sm:text-xl ${
-                      active ? "text-sky-300" : "text-zinc-200"
-                    }`}
-                  >
+                  <span className="mt-2 block text-lg font-semibold text-zinc-100 sm:text-xl">
                     {date.getDate()}
                   </span>
 
@@ -425,9 +428,7 @@ export default function AgendaPage() {
                     {Array.from({ length: Math.min(count, 3) }, (_, dot) => (
                       <span
                         key={dot}
-                        className={`h-1 w-1 rounded-full ${
-                          active ? "bg-sky-300" : "bg-zinc-500"
-                        }`}
+                        className="h-1 w-1 rounded-full bg-zinc-400"
                       />
                     ))}
                   </span>
@@ -438,7 +439,7 @@ export default function AgendaPage() {
         )}
 
         {view === "Mês" && (
-          <section className="mt-5 rounded-3xl border border-zinc-800 bg-zinc-900/60 p-3 sm:p-5">
+          <section className={`${cardClass} mt-5 p-3 sm:p-5`}>
             <div className="grid grid-cols-7 gap-1 text-center">
               {shortDays.map((day) => (
                 <div
@@ -476,14 +477,14 @@ export default function AgendaPage() {
                       }}
                       className={`min-h-12 rounded-xl p-1 text-sm transition sm:min-h-16 ${
                         active
-                          ? "bg-sky-400/15 text-sky-300"
+                          ? "bg-zinc-800 font-medium text-zinc-100"
                           : "text-zinc-300 hover:bg-zinc-800"
                       }`}
                     >
                       {date.getDate()}
 
                       {count > 0 && (
-                        <span className="mx-auto mt-1 block h-1 w-1 rounded-full bg-sky-400" />
+                        <span className="mx-auto mt-1 block h-1 w-1 rounded-full bg-zinc-400" />
                       )}
                     </button>
                   );
@@ -493,9 +494,9 @@ export default function AgendaPage() {
           </section>
         )}
 
-        <section className="mt-6 rounded-3xl border border-zinc-800 bg-zinc-900/50 p-4 sm:p-6">
+        <section className={`${cardClass} mt-6 p-4 sm:p-6`}>
           <div className="flex items-center justify-between gap-3">
-            <div>
+            <div className="min-w-0">
               <p className="text-sm text-zinc-400">
                 {weekdays[selectedDate.getDay()]}
               </p>
@@ -508,7 +509,7 @@ export default function AgendaPage() {
               </h2>
             </div>
 
-            <span className="rounded-xl bg-zinc-800 px-3 py-2 text-xs text-zinc-400">
+            <span className="shrink-0 rounded-xl bg-zinc-800 px-3 py-2 text-xs text-zinc-300">
               {selectedActivities.length}{" "}
               {selectedActivities.length === 1 ? "atividade" : "atividades"}
             </span>
@@ -516,15 +517,15 @@ export default function AgendaPage() {
 
           <div className="mt-6">
             {loading ? (
-              <div className="rounded-2xl border border-zinc-800 px-4 py-10 text-center text-zinc-400">
+              <div className="rounded-2xl border border-zinc-800 px-4 py-10 text-center text-sm text-zinc-400">
                 Carregando atividades...
               </div>
             ) : loadError ? (
-              <div className="rounded-2xl border border-rose-900/60 px-4 py-8 text-center">
-                <p className="text-sm text-rose-300">{loadError}</p>
+              <div className="rounded-2xl border border-zinc-800 px-4 py-8 text-center">
+                <p className="text-sm text-zinc-300">{loadError}</p>
                 <button
                   onClick={() => window.location.reload()}
-                  className="mt-4 rounded-xl border border-zinc-700 px-4 py-2 text-sm hover:bg-zinc-800"
+                  className={`${secondaryButtonClass} mt-4`}
                 >
                   Tentar novamente
                 </button>
@@ -539,7 +540,7 @@ export default function AgendaPage() {
 
                 <button
                   onClick={() => router.push("/criar/compromisso")}
-                  className="mt-4 text-sm text-sky-300 hover:text-sky-200"
+                  className="mt-4 rounded-xl border border-zinc-700 px-4 py-2 text-sm text-zinc-200 transition hover:bg-zinc-800"
                 >
                   + Adicionar atividade
                 </button>
@@ -575,7 +576,7 @@ export default function AgendaPage() {
           </div>
         </section>
 
-        <section className="mt-5 rounded-3xl border border-zinc-800 bg-zinc-900/40 p-5">
+        <section className={`${cardClass} mt-5 p-5`}>
           <h2 className="font-medium">Categorias</h2>
 
           <div className="mt-4 flex flex-wrap gap-3 text-xs text-zinc-400">
@@ -596,16 +597,23 @@ export default function AgendaPage() {
       </div>
 
       {selectedActivity && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) {
+              setSelectedActivity(null);
+            }
+          }}
+        >
           <div className="w-full max-w-md rounded-3xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl">
             <div className="flex items-start justify-between gap-4">
-              <div>
+              <div className="min-w-0">
                 <p className="text-sm text-zinc-400">
                   {selectedActivity.category}
                   {selectedActivity.isTask ? " · Tarefa" : ""}
                 </p>
 
-                <h2 className="mt-2 text-2xl font-semibold">
+                <h2 className="mt-2 break-words text-2xl font-semibold">
                   {selectedActivity.title}
                 </h2>
               </div>
@@ -613,7 +621,7 @@ export default function AgendaPage() {
               <button
                 onClick={() => setSelectedActivity(null)}
                 aria-label="Fechar detalhes"
-                className="rounded-lg px-3 py-1 text-zinc-400 hover:bg-zinc-800"
+                className="rounded-lg px-3 py-1 text-zinc-400 transition hover:bg-zinc-800"
               >
                 ✕
               </button>
@@ -636,14 +644,14 @@ export default function AgendaPage() {
             {selectedActivity.isTask ? (
               <button
                 onClick={() => router.push("/tarefas")}
-                className="mt-5 w-full rounded-xl border border-zinc-700 px-4 py-3 text-sm text-zinc-300 transition hover:bg-zinc-800"
+                className={`${secondaryButtonClass} mt-5 w-full py-3`}
               >
                 Gerenciar tarefa
               </button>
             ) : (
               <button
                 onClick={deleteSelectedActivity}
-                className="mt-5 w-full rounded-xl border border-rose-900/70 px-4 py-3 text-sm text-rose-300 transition hover:bg-rose-950/40"
+                className="mt-5 w-full rounded-xl border border-zinc-700 px-4 py-3 text-sm text-zinc-300 transition hover:bg-zinc-800"
               >
                 Excluir atividade
               </button>
