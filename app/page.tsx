@@ -49,14 +49,14 @@ function getTaskEnd(task: Task) {
 function activityOccursOnDate(activity: Activity, date: Date) {
   const activityDate = new Date(`${activity.date}T00:00:00`);
 
-  if (date < activityDate) return false;
+  if (dateKey(date) < dateKey(activityDate)) return false;
 
   if (activity.recurrenceEnd === "date" && activity.recurrenceEndDate) {
     const recurrenceEndDate = new Date(
       `${activity.recurrenceEndDate}T00:00:00`,
     );
 
-    if (date > recurrenceEndDate) return false;
+    if (dateKey(date) > dateKey(recurrenceEndDate)) return false;
   }
 
   const dayOfWeek = date.getDay();
