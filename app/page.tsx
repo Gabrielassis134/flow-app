@@ -2,23 +2,12 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
-import { Activity, getSavedActivities } from "./lib/activities";
-import { supabase } from "./lib/supabase";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
-type Task = {
-  id: number;
-  title: string;
-  date: string;
-  deadline?: string;
-  duration?: string;
-  durationMinutes?: number;
-  priority: string;
-  category?: string;
-  completed?: boolean;
-  hasTime?: boolean;
-  startTime?: string;
-};
+import type { Activity } from "./lib/activities";
+import { getSupabaseActivities } from "./lib/supabase-activities";
+import { getTasks, type Task } from "./lib/tasks";
+import { supabase } from "./lib/supabase";
 
 type AgendaItem = {
   id: string;
@@ -42,38 +31,32 @@ function timeToMinutes(time: string) {
 }
 
 function minutesToTime(minutes: number) {
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
+  const normalizedMinutes = ((minutes % 1440) + 1440) % 1440;
+  const hours = Math.floor(normalizedMinutes / 60);
+  const mins = normalizedMinutes % 60;
 
   return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
 }
 
 function getTaskEnd(task: Task) {
-  if (!task.startTime) {
-    return "";
-  }
+  if (!task.startTime) return "";
 
-  const durationMinutes = Number(task.durationMinutes) || 0;
-  const startMinutes = timeToMinutes(task.startTime);
-
-  return minutesToTime(startMinutes + durationMinutes);
+  return minutesToTime(
+    timeToMinutes(task.startTime) + (Number(task.durationMinutes) || 0),
+  );
 }
 
 function activityOccursOnDate(activity: Activity, date: Date) {
   const activityDate = new Date(`${activity.date}T00:00:00`);
 
-  if (date < activityDate) {
-    return false;
-  }
+  if (date < activityDate) return false;
 
   if (activity.recurrenceEnd === "date" && activity.recurrenceEndDate) {
     const recurrenceEndDate = new Date(
       `${activity.recurrenceEndDate}T00:00:00`,
     );
 
-    if (date > recurrenceEndDate) {
-      return false;
-    }
+    if (date > recurrenceEndDate) return false;
   }
 
   const dayOfWeek = date.getDay();
@@ -108,14 +91,8 @@ function formatLongDate(date: Date) {
 }
 
 function getGreeting(hour: number) {
-  if (hour < 12) {
-    return "Bom dia";
-  }
-
-  if (hour < 18) {
-    return "Boa tarde";
-  }
-
+  if (hour < 12) return "Bom dia";
+  if (hour < 18) return "Boa tarde";
   return "Boa noite";
 }
 
@@ -124,20 +101,14 @@ function getTimeUntil(start: string, now: Date) {
   const startMinutes = timeToMinutes(start);
   const difference = startMinutes - currentMinutes;
 
-  if (difference <= 0) {
-    return "agora";
-  }
+  if (difference <= 0) return "agora";
 
-  if (difference < 60) {
-    return `em ${difference}min`;
-  }
+  if (difference < 60) return `em ${difference}min`;
 
   const hours = Math.floor(difference / 60);
   const minutes = difference % 60;
 
-  if (minutes === 0) {
-    return `em ${hours}h`;
-  }
+  if (minutes === 0) return `em ${hours}h`;
 
   return `em ${hours}h ${minutes}min`;
 }
@@ -149,6 +120,33 @@ export default function Home() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [now, setNow] = useState<Date | null>(null);
+  const [loadingData, setLoadingData] = useState(true);
+  const [dataError, setDataError] = useState("");
+
+  const loadData = useCallback(async () => {
+    setLoadingData(true);
+    setDataError("");
+
+    try {
+      const [loadedTasks, loadedActivities] = await Promise.all([
+        getTasks(),
+        getSupabaseActivities(),
+      ]);
+
+      setTasks(loadedTasks);
+      setActivities(loadedActivities);
+    } catch (error) {
+      console.error("Erro ao carregar dados da página inicial:", error);
+
+      setDataError(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível carregar seus dados.",
+      );
+    } finally {
+      setLoadingData(false);
+    }
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -169,9 +167,7 @@ export default function Home() {
 
         setCheckingAuth(false);
       } catch {
-        if (active) {
-          router.replace("/login");
-        }
+        if (active) router.replace("/login");
       }
     }
 
@@ -180,9 +176,7 @@ export default function Home() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) {
-        router.replace("/login");
-      }
+      if (!session) router.replace("/login");
     });
 
     return () => {
@@ -191,51 +185,34 @@ export default function Home() {
     };
   }, [router]);
 
-  function loadData() {
-    setActivities(getSavedActivities());
-
-    const savedTasks = localStorage.getItem("flow-tasks");
-
-    if (savedTasks) {
-      try {
-        const parsedTasks = JSON.parse(savedTasks);
-        setTasks(Array.isArray(parsedTasks) ? parsedTasks : []);
-      } catch {
-        setTasks([]);
-      }
-    } else {
-      setTasks([]);
-    }
-  }
-
   useEffect(() => {
     if (checkingAuth) return;
 
-    const currentDate = new Date();
+    setNow(new Date());
+    void loadData();
 
-    setNow(currentDate);
-    loadData();
-
-    const interval = window.setInterval(() => {
+    const clockInterval = window.setInterval(() => {
       setNow(new Date());
     }, 60000);
 
-    const handleStorage = () => {
-      loadData();
+    // Atualiza os dados ao voltar para esta aba do navegador.
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        setNow(new Date());
+        void loadData();
+      }
     };
 
-    window.addEventListener("storage", handleStorage);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
 
     return () => {
-      window.clearInterval(interval);
-      window.removeEventListener("storage", handleStorage);
+      window.clearInterval(clockInterval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [checkingAuth]);
+  }, [checkingAuth, loadData]);
 
   const today = useMemo(() => {
-    if (!now) {
-      return new Date();
-    }
+    if (!now) return new Date();
 
     return new Date(now.getFullYear(), now.getMonth(), now.getDate());
   }, [now]);
@@ -250,26 +227,14 @@ export default function Home() {
 
   const todayTasks = useMemo(() => {
     return tasks
-      .filter((task) => {
-        if (task.completed) {
-          return false;
-        }
-
-        const taskDate = task.date || task.deadline;
-        return taskDate === todayKey;
-      })
+      .filter((task) => !task.completed && task.date === todayKey)
       .sort((a, b) => {
         if (a.hasTime && a.startTime && b.hasTime && b.startTime) {
           return a.startTime.localeCompare(b.startTime);
         }
 
-        if (a.hasTime && a.startTime) {
-          return -1;
-        }
-
-        if (b.hasTime && b.startTime) {
-          return 1;
-        }
+        if (a.hasTime && a.startTime) return -1;
+        if (b.hasTime && b.startTime) return 1;
 
         return 0;
       });
@@ -304,25 +269,22 @@ export default function Home() {
   }, [todayActivities, scheduledTodayTasks]);
 
   const nextItem = useMemo(() => {
-    if (!now) {
-      return null;
-    }
+    if (!now) return null;
 
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
-    const futureItems = agendaItems.filter(
-      (item) => timeToMinutes(item.start) >= currentMinutes,
+    return (
+      agendaItems.find((item) => timeToMinutes(item.start) >= currentMinutes) ??
+      null
     );
-
-    return futureItems[0] ?? null;
   }, [agendaItems, now]);
 
   const pendingTasks = useMemo(() => {
     return tasks
       .filter((task) => !task.completed)
       .sort((a, b) => {
-        const dateA = a.date || a.deadline || "9999-12-31";
-        const dateB = b.date || b.deadline || "9999-12-31";
+        const dateA = a.date || "9999-12-31";
+        const dateB = b.date || "9999-12-31";
 
         return dateA.localeCompare(dateB);
       })
@@ -342,12 +304,10 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-100">
       <div className="mx-auto flex min-h-screen max-w-7xl flex-col px-6 py-8 pb-32">
-        {/* Cabeçalho */}
         <header className="flex items-center justify-between">
           <Link href="/">
             <div>
               <h1 className="text-2xl font-semibold tracking-tight">Flow</h1>
-
               <p className="mt-1 text-sm text-zinc-400">
                 Organize sua rotina. Viva seu tempo.
               </p>
@@ -362,7 +322,6 @@ export default function Home() {
           </Link>
         </header>
 
-        {/* Saudação */}
         <section className="mt-12">
           <p className="text-sm text-zinc-400">{formatLongDate(today)}</p>
 
@@ -375,19 +334,40 @@ export default function Home() {
           </p>
         </section>
 
-        {/* Próxima atividade */}
+        {dataError && (
+          <section
+            role="alert"
+            className="mt-6 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-300"
+          >
+            <p>Não foi possível atualizar os dados da página inicial.</p>
+            <p className="mt-1 break-words">{dataError}</p>
+            <button
+              type="button"
+              onClick={() => void loadData()}
+              className="mt-3 underline"
+            >
+              Tentar novamente
+            </button>
+          </section>
+        )}
+
         <section className="mt-10">
           <Link href="/agenda">
             <div className="rounded-3xl border border-zinc-800 bg-zinc-900/70 p-6 shadow-xl transition hover:border-zinc-700 hover:bg-zinc-900">
-              {nextItem ? (
+              {loadingData ? (
+                <div>
+                  <p className="text-sm text-zinc-400">Próxima atividade</p>
+                  <h3 className="mt-2 text-xl font-medium">
+                    Carregando sua agenda...
+                  </h3>
+                </div>
+              ) : nextItem ? (
                 <div className="flex items-center justify-between gap-6">
                   <div className="min-w-0">
                     <p className="text-sm text-zinc-400">Próxima atividade</p>
-
                     <h3 className="mt-2 truncate text-2xl font-medium">
                       {nextItem.title}
                     </h3>
-
                     <p className="mt-2 text-sm text-zinc-400">
                       Hoje · {nextItem.start}
                       {nextItem.end ? ` – ${nextItem.end}` : ""}
@@ -396,7 +376,6 @@ export default function Home() {
 
                   <div className="shrink-0 rounded-2xl bg-zinc-800 px-4 py-3 text-center">
                     <p className="text-xs text-zinc-400">Em</p>
-
                     <p className="mt-1 text-lg font-semibold">
                       {now ? getTimeUntil(nextItem.start, now) : "..."}
                     </p>
@@ -405,11 +384,9 @@ export default function Home() {
               ) : (
                 <div>
                   <p className="text-sm text-zinc-400">Próxima atividade</p>
-
                   <h3 className="mt-2 text-2xl font-medium">
                     Nada agendado por enquanto
                   </h3>
-
                   <p className="mt-2 text-sm text-zinc-400">
                     Seu dia está livre. Aproveite ou planeje alguma coisa.
                   </p>
@@ -419,13 +396,10 @@ export default function Home() {
           </Link>
         </section>
 
-        {/* Resumo */}
         <section className="mt-6 grid gap-6 md:grid-cols-2">
-          {/* Agenda */}
           <div className="rounded-3xl border border-zinc-800 bg-zinc-900/60 p-6">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-medium">Hoje</h3>
-
               <Link
                 href="/agenda"
                 className="text-sm text-zinc-400 hover:text-zinc-200"
@@ -435,7 +409,9 @@ export default function Home() {
             </div>
 
             <div className="mt-5 space-y-4">
-              {agendaItems.length === 0 ? (
+              {loadingData ? (
+                <p className="text-sm text-zinc-500">Carregando agenda...</p>
+              ) : agendaItems.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-zinc-800 p-5 text-center">
                   <p className="text-sm text-zinc-500">
                     Nenhuma atividade agendada para hoje.
@@ -450,7 +426,6 @@ export default function Home() {
 
                     <div className="min-w-0 flex-1 rounded-2xl bg-zinc-800/70 p-4">
                       <p className="truncate font-medium">{item.title}</p>
-
                       <p className="mt-1 text-sm text-zinc-400">
                         {item.category}
                         {item.type === "task" ? " · Tarefa" : ""}
@@ -462,11 +437,9 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Tarefas */}
           <div className="rounded-3xl border border-zinc-800 bg-zinc-900/60 p-6">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-medium">Tarefas</h3>
-
               <Link
                 href="/tarefas"
                 className="text-sm text-zinc-400 hover:text-zinc-200"
@@ -476,7 +449,9 @@ export default function Home() {
             </div>
 
             <div className="mt-5 space-y-3">
-              {pendingTasks.length === 0 ? (
+              {loadingData ? (
+                <p className="text-sm text-zinc-500">Carregando tarefas...</p>
+              ) : pendingTasks.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-zinc-800 p-5 text-center">
                   <p className="text-sm text-zinc-500">
                     Você não tem tarefas pendentes.
@@ -493,7 +468,6 @@ export default function Home() {
 
                     <div className="min-w-0">
                       <p className="truncate font-medium">{task.title}</p>
-
                       <p className="text-sm text-zinc-400">
                         {task.duration ||
                           (task.durationMinutes
