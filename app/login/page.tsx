@@ -7,37 +7,77 @@ export default function LoginPage() {
   const [modo, setModo] = useState<"entrar" | "criar">("entrar");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
+  const [nome, setNome] = useState("");
+  const [nomeUsuario, setNomeUsuario] = useState("");
   const [mensagem, setMensagem] = useState("");
   const [carregando, setCarregando] = useState(false);
+
+  function validarNomeUsuario(usuario: string) {
+    return (
+      usuario.length >= 8 &&
+      usuario.length <= 30 &&
+      /^[a-z0-9._]+$/.test(usuario) &&
+      !usuario.startsWith(".") &&
+      !usuario.endsWith(".") &&
+      !usuario.includes("..")
+    );
+  }
 
   async function enviarFormulario(evento: React.FormEvent<HTMLFormElement>) {
     evento.preventDefault();
     setMensagem("");
+
+    const usuario = nomeUsuario.trim().toLowerCase();
+
+    if (modo === "criar") {
+      if (!nome.trim()) {
+        setMensagem("Digite seu nome de exibição.");
+        return;
+      }
+
+      if (!validarNomeUsuario(usuario)) {
+        setMensagem(
+          "Nome de usuário inválido. Use de 8 a 30 caracteres, somente letras minúsculas, números, pontos e sublinhados. Não use ponto no início, no fim ou dois pontos seguidos.",
+        );
+        return;
+      }
+    }
+
     setCarregando(true);
 
     try {
       if (modo === "criar") {
         const { data, error } = await supabase.auth.signUp({
-          email,
+          email: email.trim(),
           password: senha,
+          options: {
+            data: {
+              display_name: nome.trim(),
+              username: usuario,
+            },
+          },
         });
 
         if (error) throw error;
 
+        if (data.session) {
+          window.location.href = "/";
+          return;
+        }
+
         setMensagem(
-          data.session
-            ? "Conta criada! Você já pode entrar no Flow."
-            : "Conta criada! Confira seu e-mail para confirmar o cadastro.",
+          "Conta criada! Confira seu e-mail para confirmar o cadastro.",
         );
       } else {
         const { error } = await supabase.auth.signInWithPassword({
-          email,
+          email: email.trim(),
           password: senha,
         });
 
         if (error) throw error;
 
         window.location.href = "/";
+        return;
       }
     } catch (erro) {
       setMensagem(
@@ -61,9 +101,11 @@ export default function LoginPage() {
           <p className="text-sm font-medium text-sky-400">
             Organize sua rotina. Viva seu tempo.
           </p>
+
           <h1 className="mt-3 text-3xl font-semibold tracking-tight">
             {modo === "entrar" ? "Bem-vindo de volta" : "Crie sua conta"}
           </h1>
+
           <p className="mt-2 text-sm text-zinc-400">
             {modo === "entrar"
               ? "Entre para continuar sua organização."
@@ -72,10 +114,87 @@ export default function LoginPage() {
         </div>
 
         <form onSubmit={enviarFormulario} className="space-y-5">
+          {modo === "criar" && (
+            <>
+              <div>
+                <label htmlFor="nome" className="mb-2 block text-sm">
+                  Nome de exibição
+                </label>
+
+                <input
+                  id="nome"
+                  type="text"
+                  autoComplete="name"
+                  required
+                  maxLength={80}
+                  value={nome}
+                  onChange={(e) => setNome(e.target.value)}
+                  className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 outline-none focus:border-sky-500"
+                  placeholder="Gabriel Assis"
+                />
+
+                <p className="mt-1 text-xs text-zinc-500">
+                  Como seu nome aparecerá para outras pessoas.
+                </p>
+              </div>
+
+              <div>
+                <label htmlFor="nomeUsuario" className="mb-2 block text-sm">
+                  Nome de usuário
+                </label>
+
+                <div className="flex items-center rounded-xl border border-zinc-700 bg-zinc-950 focus-within:border-sky-500">
+                  <span className="pl-4 text-zinc-500">@</span>
+
+                  <input
+                    id="nomeUsuario"
+                    type="text"
+                    autoComplete="username"
+                    required
+                    minLength={8}
+                    maxLength={30}
+                    value={nomeUsuario}
+                    onChange={(e) => {
+                      const valor = e.target.value
+                        .toLowerCase()
+                        .replace(/[^a-z0-9._]/g, "")
+                        .slice(0, 30);
+
+                      setNomeUsuario(valor);
+                    }}
+                    aria-describedby="dica-usuario"
+                    className="w-full rounded-xl bg-transparent px-2 py-3 outline-none"
+                    placeholder="gabriel.assis"
+                  />
+                </div>
+
+                <p id="dica-usuario" className="mt-1 text-xs text-zinc-500">
+                  8 a 30 caracteres: letras minúsculas, números, ponto e
+                  sublinhado. Sem espaços ou pontos consecutivos.
+                </p>
+
+                {nomeUsuario.length > 0 && (
+                  <p
+                    className={`mt-2 text-xs ${
+                      validarNomeUsuario(nomeUsuario)
+                        ? "text-emerald-400"
+                        : "text-amber-400"
+                    }`}
+                  >
+                    {validarNomeUsuario(nomeUsuario)
+                      ? `Seu usuário será @${nomeUsuario}`
+                      : "Confira as regras do nome de usuário."}
+                  </p>
+                )}
+              </div>
+            </>
+          )}
+
           <div>
             <label htmlFor="email" className="mb-2 block text-sm">
               E-mail
             </label>
+
             <input
               id="email"
               type="email"
@@ -92,6 +211,7 @@ export default function LoginPage() {
             <label htmlFor="senha" className="mb-2 block text-sm">
               Senha
             </label>
+
             <input
               id="senha"
               type="password"

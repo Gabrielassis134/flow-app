@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { createTask, getTasks } from "../../lib/tasks";
+import { getSupabaseActivities } from "../../lib/supabase-activities";
 
 type Priority = "Alta" | "Média" | "Baixa";
 
@@ -59,6 +61,9 @@ export default function NovaTarefaPage() {
     end: string;
   } | null>(null);
 
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+
   const currentYear = today.getFullYear();
 
   const maxDay = new Date(year, month + 1, 0).getDate();
@@ -96,8 +101,9 @@ export default function NovaTarefaPage() {
   }
 
   function minutesToTime(minutes: number) {
-    const hour = Math.floor(minutes / 60);
-    const minute = minutes % 60;
+    const normalizedMinutes = ((minutes % 1440) + 1440) % 1440;
+    const hour = Math.floor(normalizedMinutes / 60);
+    const minute = normalizedMinutes % 60;
 
     return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
   }
@@ -116,105 +122,80 @@ export default function NovaTarefaPage() {
     return startAMinutes < endBMinutes && endAMinutes > startBMinutes;
   }
 
-  function findConflict(
+  async function findConflict(
     date: string,
     startTime: string,
     durationMinutes: number,
   ) {
     const endTime = minutesToTime(timeToMinutes(startTime) + durationMinutes);
 
-    const savedActivities = localStorage.getItem("flow-activities");
+    const [activities, tasks] = await Promise.all([
+      getSupabaseActivities(),
+      getTasks(),
+    ]);
 
-    if (savedActivities) {
-      try {
-        const activities = JSON.parse(savedActivities);
+    const activityConflict = activities.find(
+      (activity) =>
+        activity.date === date &&
+        overlaps(startTime, endTime, activity.start, activity.end),
+    );
 
-        const conflict = activities.find(
-          (activity: {
-            date: string;
-            start: string;
-            end: string;
-            title: string;
-          }) =>
-            activity.date === date &&
-            overlaps(startTime, endTime, activity.start, activity.end),
-        );
-
-        if (conflict) {
-          return {
-            title: conflict.title,
-            start: conflict.start,
-            end: conflict.end,
-          };
-        }
-      } catch {
-        // Ignora dados inválidos
-      }
+    if (activityConflict) {
+      return {
+        title: activityConflict.title,
+        start: activityConflict.start,
+        end: activityConflict.end,
+      };
     }
 
-    const savedTasks = localStorage.getItem("flow-tasks");
-
-    if (savedTasks) {
-      try {
-        const tasks = JSON.parse(savedTasks);
-
-        const conflict = tasks.find(
-          (task: {
-            date: string;
-            startTime: string | null;
-            durationMinutes: number;
-            title: string;
-            completed: boolean;
-            hasTime: boolean;
-          }) => {
-            if (
-              task.completed ||
-              !task.hasTime ||
-              !task.startTime ||
-              !task.durationMinutes
-            ) {
-              return false;
-            }
-
-            if (task.date !== date) {
-              return false;
-            }
-
-            const taskEndTime = minutesToTime(
-              timeToMinutes(task.startTime) + task.durationMinutes,
-            );
-
-            return overlaps(startTime, endTime, task.startTime, taskEndTime);
-          },
-        );
-
-        if (conflict) {
-          return {
-            title: conflict.title,
-            start: conflict.startTime,
-            end: minutesToTime(
-              timeToMinutes(conflict.startTime) + conflict.durationMinutes,
-            ),
-          };
-        }
-      } catch {
-        // Ignora dados inválidos
+    const taskConflict = tasks.find((task) => {
+      if (
+        task.completed ||
+        !task.hasTime ||
+        !task.startTime ||
+        !task.durationMinutes ||
+        task.date !== date
+      ) {
+        return false;
       }
+
+      const taskEndTime = minutesToTime(
+        timeToMinutes(task.startTime) + task.durationMinutes,
+      );
+
+      return overlaps(startTime, endTime, task.startTime, taskEndTime);
+    });
+
+    if (taskConflict && taskConflict.startTime) {
+      return {
+        title: taskConflict.title,
+        start: taskConflict.startTime,
+        end: minutesToTime(
+          timeToMinutes(taskConflict.startTime) + taskConflict.durationMinutes,
+        ),
+      };
     }
 
     return null;
   }
 
-  function handleSave(forceSave = false) {
+  async function handleSave(forceSave = false) {
+    if (saving) return;
+
+    setSaveError("");
+
     if (!title.trim()) {
+      setSaveError("Informe o nome da tarefa.");
       return;
     }
 
     if (isBeforeToday) {
+      setSaveError("O prazo não pode ser anterior a hoje.");
       return;
     }
 
     if (durationHours === 0 && durationMinutes === 0) {
+      setSaveError("A duração deve ser maior que zero.");
       return;
     }
 
@@ -227,55 +208,62 @@ export default function NovaTarefaPage() {
     const taskDurationMinutes = durationHours * 60 + durationMinutes;
 
     if (hasTime && startTime && !forceSave) {
-      const foundConflict = findConflict(date, startTime, taskDurationMinutes);
+      try {
+        const foundConflict = await findConflict(
+          date,
+          startTime,
+          taskDurationMinutes,
+        );
 
-      if (foundConflict) {
-        setConflict(foundConflict);
+        if (foundConflict) {
+          setConflict(foundConflict);
+          return;
+        }
+      } catch (error) {
+        console.error("Erro ao verificar conflitos:", error);
+        setSaveError(
+          "Não foi possível verificar os conflitos de horário. Confira sua conexão e tente novamente.",
+        );
         return;
       }
     }
 
-    const newTask = {
-      id: Date.now(),
-      title: title.trim(),
-      description: description.trim(),
-      date,
-      durationMinutes: taskDurationMinutes,
-      duration: `${durationHours}h ${String(durationMinutes).padStart(2, "0")}min`,
-      priority,
-      category,
-      hasTime,
-      startTime,
-      completed: false,
-    };
+    setSaving(true);
 
-    const saved = localStorage.getItem("flow-tasks");
+    try {
+      await createTask({
+        title: title.trim(),
+        description: description.trim(),
+        date,
+        durationMinutes: taskDurationMinutes,
+        duration: `${durationHours}h ${String(durationMinutes).padStart(2, "0")}min`,
+        priority,
+        category,
+        hasTime,
+        startTime,
+        completed: false,
+      });
 
-    let currentTasks = [];
+      router.push("/tarefas");
+    } catch (error) {
+      console.error("Erro ao salvar tarefa:", error);
 
-    if (saved) {
-      try {
-        currentTasks = JSON.parse(saved);
-      } catch {
-        currentTasks = [];
-      }
+      setSaveError(
+        error instanceof Error
+          ? `Não foi possível salvar a tarefa: ${error.message}`
+          : "Não foi possível salvar a tarefa. Tente novamente.",
+      );
+    } finally {
+      setSaving(false);
     }
-
-    localStorage.setItem(
-      "flow-tasks",
-      JSON.stringify([...currentTasks, newTask]),
-    );
-
-    router.push("/tarefas");
   }
 
   return (
     <main className="min-h-screen bg-zinc-950 pb-32 text-zinc-100">
       <div className="mx-auto max-w-2xl px-6 py-8">
-        {/* CABEÇALHO */}
-
         <header>
           <button
+            type="button"
             onClick={() => router.back()}
             className="text-sm text-zinc-500 transition hover:text-zinc-200"
           >
@@ -293,11 +281,7 @@ export default function NovaTarefaPage() {
           </p>
         </header>
 
-        {/* FORMULÁRIO */}
-
         <section className="mt-8 rounded-3xl border border-zinc-800 bg-zinc-900/70 p-6">
-          {/* NOME */}
-
           <div>
             <label className="text-sm font-medium text-zinc-300">
               Nome da tarefa
@@ -311,8 +295,6 @@ export default function NovaTarefaPage() {
               className="mt-2 w-full rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm outline-none placeholder:text-zinc-600 focus:border-zinc-600"
             />
           </div>
-
-          {/* DESCRIÇÃO */}
 
           <div className="mt-5">
             <label className="text-sm font-medium text-zinc-300">
@@ -331,8 +313,6 @@ export default function NovaTarefaPage() {
             />
           </div>
 
-          {/* CATEGORIA */}
-
           <div className="mt-5">
             <label className="text-sm font-medium text-zinc-300">
               Categoria
@@ -348,8 +328,6 @@ export default function NovaTarefaPage() {
               ))}
             </select>
           </div>
-
-          {/* PRIORIDADE */}
 
           <div className="mt-5">
             <label className="text-sm font-medium text-zinc-300">
@@ -377,8 +355,6 @@ export default function NovaTarefaPage() {
               ))}
             </div>
           </div>
-
-          {/* PRAZO */}
 
           <div className="mt-5">
             <label className="text-sm font-medium text-zinc-300">Prazo</label>
@@ -444,8 +420,6 @@ export default function NovaTarefaPage() {
             )}
           </div>
 
-          {/* DURAÇÃO */}
-
           <div className="mt-5">
             <label className="text-sm font-medium text-zinc-300">
               Duração estimada
@@ -495,8 +469,6 @@ export default function NovaTarefaPage() {
               </div>
             </div>
           </div>
-
-          {/* HORÁRIO */}
 
           <div className="mt-6 rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4">
             <button
@@ -570,19 +542,27 @@ export default function NovaTarefaPage() {
             )}
           </div>
 
-          {/* SALVAR */}
+          {saveError && (
+            <p
+              role="alert"
+              className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-300"
+            >
+              {saveError}
+            </p>
+          )}
 
           <button
             type="button"
-            onClick={() => handleSave()}
+            onClick={() => void handleSave()}
             disabled={
+              saving ||
               !title.trim() ||
               isBeforeToday ||
               (durationHours === 0 && durationMinutes === 0)
             }
             className="mt-8 w-full rounded-2xl bg-zinc-100 px-4 py-3 font-medium text-zinc-950 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Salvar tarefa
+            {saving ? "Salvando..." : "Salvar tarefa"}
           </button>
         </section>
       </div>
@@ -627,11 +607,12 @@ export default function NovaTarefaPage() {
 
               <button
                 type="button"
+                disabled={saving}
                 onClick={() => {
                   setConflict(null);
-                  handleSave(true);
+                  void handleSave(true);
                 }}
-                className="flex-1 rounded-xl bg-zinc-100 px-4 py-3 text-sm font-semibold text-zinc-950 transition hover:bg-white"
+                className="flex-1 rounded-xl bg-zinc-100 px-4 py-3 text-sm font-semibold text-zinc-950 transition hover:bg-white disabled:opacity-50"
               >
                 Manter mesmo assim
               </button>
