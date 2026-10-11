@@ -1,43 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  deleteTaskFromDatabase,
+  getTasks,
+  setTaskCompleted,
+  type Task,
+} from "../lib/tasks";
 
-type Priority = "Alta" | "Média" | "Baixa";
 type Filter = "Todas" | "Hoje" | "Próximas" | "Atrasadas" | "Concluídas";
 
-type Task = {
-  id: number;
-  title: string;
-  description: string;
-  date: string;
-  durationMinutes: number;
-  duration?: string;
-  hasTime: boolean;
-  startTime?: string;
-  priority: Priority;
-  category: string;
-  completed: boolean;
-};
-
-const priorityStyles = {
-  Alta: {
-    badge: "bg-rose-400/10 text-rose-300",
-    dot: "bg-rose-400",
-    border: "border-l-rose-400",
-  },
-  Média: {
-    badge: "bg-amber-400/10 text-amber-300",
-    dot: "bg-amber-400",
-    border: "border-l-amber-400",
-  },
-  Baixa: {
-    badge: "bg-emerald-400/10 text-emerald-300",
-    dot: "bg-emerald-400",
-    border: "border-l-emerald-400",
-  },
-};
-
-const filters: Filter[] = [
+const FILTERS: Filter[] = [
   "Todas",
   "Hoje",
   "Próximas",
@@ -45,449 +19,497 @@ const filters: Filter[] = [
   "Concluídas",
 ];
 
+function getToday() {
+  const now = new Date();
+
+  return [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, "0"),
+    String(now.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function formatDate(date: string) {
+  if (!date) return "Sem data definida";
+
+  const [year, month, day] = date.split("-");
+  if (!year || !month || !day) return date;
+
+  return `${day}/${month}/${year}`;
+}
+
+function priorityClass(priority: Task["priority"]) {
+  switch (priority) {
+    case "Alta":
+      return "bg-rose-400/10 text-rose-300";
+    case "Média":
+      return "bg-amber-400/10 text-amber-300";
+    default:
+      return "bg-emerald-400/10 text-emerald-300";
+  }
+}
+
 export default function TarefasPage() {
+  const router = useRouter();
+
   const [tasks, setTasks] = useState<Task[]>([]);
   const [filter, setFilter] = useState<Filter>("Todas");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [busyId, setBusyId] = useState<string | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
-  function formatDate(date: string) {
-    const [year, month, day] = date.split("-");
-
-    return `${day}/${month}/${year}`;
-  }
-
-  useEffect(() => {
-    const saved = localStorage.getItem("flow-tasks");
-
-    if (!saved) {
-      return;
-    }
+  const loadTasks = useCallback(async () => {
+    setLoading(true);
+    setError("");
 
     try {
-      const savedTasks = JSON.parse(saved);
-
-      if (!Array.isArray(savedTasks)) {
-        return;
-      }
-
-      setTasks(savedTasks);
-    } catch {
-      console.error("Não foi possível carregar as tarefas salvas.");
+      setTasks(await getTasks());
+    } catch (err) {
+      console.error("Erro ao carregar tarefas:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Não foi possível carregar suas tarefas.",
+      );
+    } finally {
+      setLoading(false);
     }
   }, []);
 
+  useEffect(() => {
+    void loadTasks();
+  }, [loadTasks]);
+
+  const today = getToday();
+
   const filteredTasks = useMemo(() => {
-    return tasks.filter((task) => {
-      if (filter === "Todas") return true;
-
-      if (filter === "Hoje") {
-        const today = new Date();
-
-        const todayKey = `${today.getFullYear()}-${String(
-          today.getMonth() + 1,
-        ).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-
-        return task.date === todayKey && !task.completed;
-      }
-
-      if (filter === "Próximas") {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const taskDate = new Date(`${task.date}T00:00:00`);
-
-        return taskDate > today && !task.completed;
-      }
-
-      if (filter === "Atrasadas") {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const taskDate = new Date(`${task.date}T00:00:00`);
-
-        return taskDate < today && !task.completed;
-      }
-
-      if (filter === "Concluídas") {
-        return task.completed;
-      }
-
-      return true;
+    const sorted = [...tasks].sort((a, b) => {
+      if (!a.date && !b.date) return a.title.localeCompare(b.title);
+      if (!a.date) return 1;
+      if (!b.date) return -1;
+      return a.date.localeCompare(b.date);
     });
-  }, [tasks, filter]);
 
-  const pendingCount = tasks.filter((task) => !task.completed).length;
-  const completedCount = tasks.filter((task) => task.completed).length;
+    switch (filter) {
+      case "Hoje":
+        return sorted.filter((task) => task.date === today && !task.completed);
+      case "Próximas":
+        return sorted.filter((task) => task.date > today && !task.completed);
+      case "Atrasadas":
+        return sorted.filter((task) =>
+          Boolean(task.date && task.date < today && !task.completed),
+        );
+      case "Concluídas":
+        return sorted.filter((task) => task.completed);
+      default:
+        return sorted;
+    }
+  }, [tasks, filter, today]);
 
-  function toggleTask(id: number) {
-    setTasks((current) => {
-      const updatedTasks = current.map((task) =>
-        task.id === id ? { ...task, completed: !task.completed } : task,
+  async function handleToggle(task: Task) {
+    const nextCompleted = !task.completed;
+    setBusyId(task.id);
+    setError("");
+
+    try {
+      await setTaskCompleted(task.id, nextCompleted);
+
+      const updatedTask = { ...task, completed: nextCompleted };
+
+      setTasks((current) =>
+        current.map((item) => (item.id === task.id ? updatedTask : item)),
       );
-
-      const saved = localStorage.getItem("flow-tasks");
-
-      if (saved) {
-        try {
-          const savedTasks = JSON.parse(saved);
-
-          if (Array.isArray(savedTasks)) {
-            const savedIds = new Set(savedTasks.map((task) => task.id));
-
-            const updatedSavedTasks = updatedTasks.filter((task) =>
-              savedIds.has(task.id),
-            );
-
-            localStorage.setItem(
-              "flow-tasks",
-              JSON.stringify(updatedSavedTasks),
-            );
-          }
-        } catch {
-          console.error("Não foi possível atualizar a tarefa.");
-        }
-      }
-
-      return updatedTasks;
-    });
-
-    setSelectedTask((current) => {
-      if (!current || current.id !== id) {
-        return current;
-      }
-
-      return {
-        ...current,
-        completed: !current.completed,
-      };
-    });
+      setSelectedTask((current) =>
+        current?.id === task.id ? updatedTask : current,
+      );
+    } catch (err) {
+      console.error("Erro ao atualizar tarefa:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Não foi possível atualizar a tarefa.",
+      );
+    } finally {
+      setBusyId(null);
+    }
   }
 
-  function deleteTask(id: number) {
-    setTasks((current) => {
-      const updatedTasks = current.filter((task) => task.id !== id);
+  async function handleDelete() {
+    if (!selectedTask || busyId) return;
 
-      const saved = localStorage.getItem("flow-tasks");
+    const taskToDelete = selectedTask;
+    setBusyId(taskToDelete.id);
+    setError("");
 
-      if (saved) {
-        try {
-          const savedTasks = JSON.parse(saved);
+    try {
+      await deleteTaskFromDatabase(taskToDelete.id);
 
-          if (Array.isArray(savedTasks)) {
-            const updatedSavedTasks = savedTasks.filter(
-              (task) => task.id !== id,
-            );
-
-            localStorage.setItem(
-              "flow-tasks",
-              JSON.stringify(updatedSavedTasks),
-            );
-          }
-        } catch {
-          console.error("Não foi possível excluir a tarefa.");
-        }
-      }
-
-      return updatedTasks;
-    });
-
-    setSelectedTask(null);
+      setTasks((current) =>
+        current.filter((task) => task.id !== taskToDelete.id),
+      );
+      setSelectedTask(null);
+      setConfirmDelete(false);
+    } catch (err) {
+      console.error("Erro ao excluir tarefa:", err);
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Não foi possível excluir a tarefa.",
+      );
+    } finally {
+      setBusyId(null);
+    }
   }
 
   return (
-    <main className="min-h-screen bg-zinc-950 pb-32 text-zinc-100">
-      <div className="mx-auto max-w-5xl px-6 py-8">
-        {/* Cabeçalho */}
-        <header>
-          <p className="text-sm text-zinc-500">Sua organização</p>
-
-          <div className="mt-2 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+    <main className="min-h-screen bg-zinc-950 px-4 py-8 pb-32 text-zinc-100">
+      <div className="mx-auto max-w-3xl">
+        <header className="mb-8">
+          <div className="flex items-start justify-between gap-3">
             <div>
-              <h1 className="text-3xl font-semibold tracking-tight">Tarefas</h1>
-
+              <p className="text-sm text-zinc-500">Seu planejamento</p>
+              <h1 className="mt-2 text-3xl font-semibold tracking-tight">
+                Minhas tarefas
+              </h1>
               <p className="mt-2 text-sm text-zinc-400">
-                Tudo que precisa ser feito, sem perder o controle.
+                Organize suas prioridades e acompanhe seu progresso.
               </p>
-
-              <a
-                href="/planejamento"
-                className="mt-4 inline-flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm font-medium text-zinc-200 transition hover:border-zinc-600 hover:bg-zinc-800"
-              >
-                <span>✦</span>
-                Planejamento
-              </a>
             </div>
 
-            <div className="flex gap-2">
-              <div className="rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3">
-                <p className="text-xs text-zinc-500">Pendentes</p>
-
-                <p className="mt-1 text-xl font-semibold">{pendingCount}</p>
-              </div>
-
-              <div className="rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3">
-                <p className="text-xs text-zinc-500">Concluídas</p>
-
-                <p className="mt-1 text-xl font-semibold">{completedCount}</p>
-              </div>
-            </div>
+            <button
+              type="button"
+              onClick={() => router.push("/criar/tarefa")}
+              className="shrink-0 rounded-2xl bg-zinc-100 px-4 py-3 text-sm font-medium text-zinc-950 transition hover:bg-white"
+            >
+              + Nova tarefa
+            </button>
           </div>
+
+          <button
+            type="button"
+            onClick={() => router.push("/planejamento")}
+            className="mt-5 inline-flex items-center gap-2 rounded-2xl border border-zinc-700 bg-zinc-900 px-5 py-3 text-sm font-medium text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-800"
+          >
+            <span aria-hidden="true">✦</span>
+            Planejamento
+          </button>
         </header>
 
-        {/* Filtros */}
-        <section className="mt-8 overflow-x-auto">
-          <div className="flex min-w-max gap-2 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-2">
-            {filters.map((item) => (
-              <button
-                key={item}
-                onClick={() => setFilter(item)}
-                className={`rounded-xl px-4 py-2 text-sm transition ${
-                  filter === item
-                    ? "bg-zinc-100 text-zinc-950"
-                    : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
-                }`}
-              >
-                {item}
-              </button>
-            ))}
+        <section className="mb-6 grid grid-cols-3 gap-3">
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4">
+            <p className="text-xs text-zinc-500">Total</p>
+            <p className="mt-2 text-2xl font-semibold">{tasks.length}</p>
+          </div>
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4">
+            <p className="text-xs text-zinc-500">Pendentes</p>
+            <p className="mt-2 text-2xl font-semibold">
+              {tasks.filter((task) => !task.completed).length}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4">
+            <p className="text-xs text-zinc-500">Concluídas</p>
+            <p className="mt-2 text-2xl font-semibold">
+              {tasks.filter((task) => task.completed).length}
+            </p>
           </div>
         </section>
 
-        {/* Lista */}
-        <section className="mt-6">
-          {filteredTasks.length === 0 ? (
-            <div className="rounded-3xl border border-dashed border-zinc-800 bg-zinc-900/30 px-6 py-16 text-center">
-              <p className="text-lg font-medium">Nenhuma tarefa aqui.</p>
+        <div className="mb-5 flex gap-2 overflow-x-auto pb-2">
+          {FILTERS.map((item) => (
+            <button
+              key={item}
+              type="button"
+              onClick={() => setFilter(item)}
+              className={`shrink-0 rounded-full border px-4 py-2 text-sm transition ${
+                filter === item
+                  ? "border-zinc-100 bg-zinc-100 text-zinc-950"
+                  : "border-zinc-800 bg-zinc-900 text-zinc-400 hover:border-zinc-600"
+              }`}
+            >
+              {item}
+            </button>
+          ))}
+        </div>
 
-              <p className="mt-2 text-sm text-zinc-500">
-                Quando houver algo para mostrar, aparecerá nesta lista.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {filteredTasks.map((task) => {
-                const priority = priorityStyles[task.priority];
+        {error && (
+          <div
+            role="alert"
+            className="mb-5 rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4 text-sm text-rose-300"
+          >
+            <p>{error}</p>
+            <button
+              type="button"
+              onClick={() => void loadTasks()}
+              className="mt-2 underline"
+            >
+              Tentar carregar novamente
+            </button>
+          </div>
+        )}
 
-                return (
-                  <div
-                    key={task.id}
-                    className={`group flex items-center gap-4 rounded-2xl border border-zinc-800 border-l-4 ${priority.border} bg-zinc-900/70 p-4 transition hover:bg-zinc-900`}
+        {loading ? (
+          <div className="rounded-3xl border border-zinc-800 bg-zinc-900/60 p-10 text-center text-sm text-zinc-400">
+            Carregando tarefas do banco de dados...
+          </div>
+        ) : filteredTasks.length === 0 ? (
+          <div className="rounded-3xl border border-dashed border-zinc-700 bg-zinc-900/40 px-6 py-12 text-center">
+            <h2 className="text-lg font-medium">Nenhuma tarefa encontrada</h2>
+            <p className="mt-2 text-sm text-zinc-500">
+              {filter === "Todas"
+                ? "Crie uma tarefa para começar a organizar seu dia."
+                : `Você não tem tarefas na categoria "${filter}".`}
+            </p>
+            {filter === "Todas" && (
+              <button
+                type="button"
+                onClick={() => router.push("/criar/tarefa")}
+                className="mt-5 rounded-2xl bg-zinc-100 px-5 py-3 text-sm font-medium text-zinc-950"
+              >
+                Criar tarefa
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filteredTasks.map((task) => (
+              <article
+                key={task.id}
+                className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 transition hover:border-zinc-700"
+              >
+                <div className="flex items-start gap-3">
+                  <button
+                    type="button"
+                    disabled={busyId === task.id}
+                    onClick={() => void handleToggle(task)}
+                    aria-label={
+                      task.completed
+                        ? `Reabrir tarefa ${task.title}`
+                        : `Concluir tarefa ${task.title}`
+                    }
+                    className={`mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-sm transition disabled:opacity-50 ${
+                      task.completed
+                        ? "border-emerald-400 bg-emerald-400 text-zinc-950"
+                        : "border-zinc-600 text-transparent hover:border-zinc-300"
+                    }`}
                   >
-                    {/* Checkbox */}
-                    <button
-                      onClick={() => toggleTask(task.id)}
-                      aria-label={
+                    ✓
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedTask(task);
+                      setConfirmDelete(false);
+                    }}
+                    className="min-w-0 flex-1 text-left"
+                  >
+                    <h2
+                      className={`break-words font-medium ${
                         task.completed
-                          ? "Marcar como pendente"
-                          : "Concluir tarefa"
-                      }
-                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition ${
-                        task.completed
-                          ? "border-zinc-500 bg-zinc-100 text-zinc-950"
-                          : "border-zinc-600 hover:border-zinc-400"
+                          ? "text-zinc-500 line-through"
+                          : "text-zinc-100"
                       }`}
                     >
-                      {task.completed && (
-                        <span className="text-xs font-bold">✓</span>
+                      {task.title}
+                    </h2>
+
+                    {task.description && (
+                      <p className="mt-1 line-clamp-2 whitespace-pre-wrap break-words text-sm text-zinc-500">
+                        {task.description}
+                      </p>
+                    )}
+
+                    <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                      <span className="rounded-full bg-zinc-800 px-3 py-1 text-zinc-300">
+                        {formatDate(task.date)}
+                      </span>
+                      {task.hasTime && task.startTime && (
+                        <span className="rounded-full bg-sky-400/10 px-3 py-1 text-sky-300">
+                          {task.startTime}
+                        </span>
                       )}
-                    </button>
+                      <span className="rounded-full bg-zinc-800 px-3 py-1 text-zinc-300">
+                        {task.durationMinutes} min
+                      </span>
+                      <span
+                        className={`rounded-full px-3 py-1 ${priorityClass(task.priority)}`}
+                      >
+                        {task.priority}
+                      </span>
+                      <span className="rounded-full bg-zinc-800 px-3 py-1 text-zinc-300">
+                        {task.category}
+                      </span>
+                    </div>
+                  </button>
 
-                    {/* Conteúdo */}
-                    <button
-                      onClick={() => setSelectedTask(task)}
-                      className="min-w-0 flex-1 text-left"
-                    >
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h2
-                          className={`font-medium ${
-                            task.completed
-                              ? "text-zinc-500 line-through"
-                              : "text-zinc-100"
-                          }`}
-                        >
-                          {task.title}
-                        </h2>
-
-                        <span
-                          className={`rounded-full px-2 py-1 text-[11px] ${priority.badge}`}
-                        >
-                          {task.priority}
-                        </span>
-                      </div>
-
-                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-zinc-500">
-                        <span>
-                          <span>Prazo: {formatDate(task.date)}</span>
-                        </span>
-
-                        <span>
-                          {task.durationMinutes >= 60
-                            ? `${Math.floor(task.durationMinutes / 60)}h${
-                                task.durationMinutes % 60
-                                  ? ` ${task.durationMinutes % 60}min`
-                                  : ""
-                              }`
-                            : `${task.durationMinutes}min`}
-                        </span>
-
-                        <span>
-                          {task.hasTime && task.startTime
-                            ? `às ${task.startTime}`
-                            : "Sem horário"}
-                        </span>
-
-                        <span>{task.category}</span>
-                      </div>
-                    </button>
-
-                    <span className="hidden text-zinc-600 transition group-hover:text-zinc-400 sm:block">
-                      ›
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
-
-        {/* Resumo */}
-        <section className="mt-8 grid gap-4 sm:grid-cols-3">
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
-            <div className="flex items-center gap-3">
-              <span className="h-2.5 w-2.5 rounded-full bg-rose-400" />
-              <span className="text-sm text-zinc-400">Alta prioridade</span>
-            </div>
-
-            <p className="mt-3 text-2xl font-semibold">
-              {
-                tasks.filter(
-                  (task) => task.priority === "Alta" && !task.completed,
-                ).length
-              }
-            </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedTask(task);
+                      setConfirmDelete(false);
+                    }}
+                    aria-label={`Ver detalhes de ${task.title}`}
+                    className="rounded-lg px-2 py-1 text-xl text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200"
+                  >
+                    ⋯
+                  </button>
+                </div>
+              </article>
+            ))}
           </div>
-
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
-            <div className="flex items-center gap-3">
-              <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
-              <span className="text-sm text-zinc-400">Média prioridade</span>
-            </div>
-
-            <p className="mt-3 text-2xl font-semibold">
-              {
-                tasks.filter(
-                  (task) => task.priority === "Média" && !task.completed,
-                ).length
-              }
-            </p>
-          </div>
-
-          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/50 p-5">
-            <div className="flex items-center gap-3">
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
-              <span className="text-sm text-zinc-400">Baixa prioridade</span>
-            </div>
-
-            <p className="mt-3 text-2xl font-semibold">
-              {
-                tasks.filter(
-                  (task) => task.priority === "Baixa" && !task.completed,
-                ).length
-              }
-            </p>
-          </div>
-        </section>
+        )}
       </div>
 
-      {/* Detalhes da tarefa */}
       {selectedTask && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
-          <div className="w-full max-w-lg rounded-3xl border border-zinc-700 bg-zinc-900 p-6 shadow-2xl">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-sm text-zinc-500">{selectedTask.category}</p>
-
-                <h2 className="mt-2 text-2xl font-semibold">
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-3 sm:items-center"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !busyId) {
+              setSelectedTask(null);
+              setConfirmDelete(false);
+            }
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="task-dialog-title"
+            className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-3xl border border-zinc-800 bg-zinc-950 p-6 shadow-2xl"
+          >
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-xs uppercase tracking-wide text-zinc-500">
+                  Detalhes da tarefa
+                </p>
+                <h2
+                  id="task-dialog-title"
+                  className="mt-2 break-words text-xl font-semibold"
+                >
                   {selectedTask.title}
                 </h2>
               </div>
-
               <button
-                onClick={() => setSelectedTask(null)}
-                className="rounded-xl px-3 py-2 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-200"
+                type="button"
+                disabled={busyId !== null}
+                onClick={() => {
+                  setSelectedTask(null);
+                  setConfirmDelete(false);
+                }}
+                aria-label="Fechar detalhes"
+                className="rounded-full px-3 py-1 text-xl text-zinc-500 hover:bg-zinc-800 disabled:opacity-50"
               >
-                ✕
+                ×
               </button>
             </div>
 
-            <p className="mt-5 text-sm leading-6 text-zinc-400">
-              {selectedTask.description}
-            </p>
+            {selectedTask.description && (
+              <div className="mb-4">
+                <p className="text-sm text-zinc-500">Descrição</p>
+                <p className="mt-1 whitespace-pre-wrap break-words text-sm text-zinc-200">
+                  {selectedTask.description}
+                </p>
+              </div>
+            )}
 
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              <div className="rounded-2xl bg-zinc-950 p-4">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="rounded-2xl bg-zinc-900 p-3">
+                <p className="text-xs text-zinc-500">Data</p>
+                <p className="mt-1 text-sm font-medium">
+                  {formatDate(selectedTask.date)}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-zinc-900 p-3">
+                <p className="text-xs text-zinc-500">Duração</p>
+                <p className="mt-1 text-sm font-medium">
+                  {selectedTask.durationMinutes} minutos
+                </p>
+              </div>
+              <div className="rounded-2xl bg-zinc-900 p-3">
                 <p className="text-xs text-zinc-500">Horário</p>
-
-                <p className="mt-1 text-sm">
+                <p className="mt-1 text-sm font-medium">
                   {selectedTask.hasTime && selectedTask.startTime
                     ? selectedTask.startTime
-                    : "Sem horário"}
+                    : "Sem horário definido"}
                 </p>
               </div>
-
-              <div className="rounded-2xl bg-zinc-950 p-4">
-                <p className="text-xs text-zinc-500">Prazo</p>
-
-                <p className="mt-1 text-sm">{formatDate(selectedTask.date)}</p>
-              </div>
-
-              <div className="rounded-2xl bg-zinc-950 p-4">
-                <p className="text-xs text-zinc-500">Duração</p>
-
-                <p className="mt-1 text-sm">
-                  {selectedTask.durationMinutes >= 60
-                    ? `${Math.floor(selectedTask.durationMinutes / 60)}h${
-                        selectedTask.durationMinutes % 60
-                          ? ` ${selectedTask.durationMinutes % 60}min`
-                          : ""
-                      }`
-                    : `${selectedTask.durationMinutes}min`}
-                </p>
-              </div>
-
-              <div className="rounded-2xl bg-zinc-950 p-4">
+              <div className="rounded-2xl bg-zinc-900 p-3">
                 <p className="text-xs text-zinc-500">Prioridade</p>
-
-                <p className="mt-1 text-sm">{selectedTask.priority}</p>
+                <p className="mt-1 text-sm font-medium">
+                  {selectedTask.priority}
+                </p>
               </div>
-
-              <div className="col-span-2 rounded-2xl bg-zinc-950 p-4">
+              <div className="col-span-2 rounded-2xl bg-zinc-900 p-3">
+                <p className="text-xs text-zinc-500">Categoria</p>
+                <p className="mt-1 text-sm font-medium">
+                  {selectedTask.category || "Sem categoria"}
+                </p>
+              </div>
+              <div className="col-span-2 rounded-2xl bg-zinc-900 p-3">
                 <p className="text-xs text-zinc-500">Status</p>
-
-                <p className="mt-1 text-sm">
+                <p className="mt-1 text-sm font-medium">
                   {selectedTask.completed ? "Concluída" : "Pendente"}
                 </p>
               </div>
             </div>
 
-            <div className="mt-6 flex flex-col gap-2 sm:flex-row">
+            <div className="mt-6 flex flex-col gap-3">
               <button
-                onClick={() => toggleTask(selectedTask.id)}
-                className="flex-1 rounded-xl bg-zinc-100 px-4 py-3 text-sm font-medium text-zinc-950 transition hover:bg-white"
+                type="button"
+                disabled={busyId === selectedTask.id}
+                onClick={() => void handleToggle(selectedTask)}
+                className="w-full rounded-2xl bg-zinc-100 px-4 py-3 text-sm font-semibold text-zinc-950 disabled:opacity-50"
               >
-                {selectedTask.completed
-                  ? "Marcar como pendente"
-                  : "Concluir tarefa"}
+                {busyId === selectedTask.id
+                  ? "Salvando..."
+                  : selectedTask.completed
+                    ? "Marcar como pendente"
+                    : "Marcar como concluída"}
               </button>
 
-              <button
-                onClick={() => deleteTask(selectedTask.id)}
-                className="rounded-xl border border-rose-900/70 px-4 py-3 text-sm text-rose-300 transition hover:bg-rose-950/40"
-              >
-                Excluir
-              </button>
+              {!confirmDelete ? (
+                <button
+                  type="button"
+                  disabled={busyId === selectedTask.id}
+                  onClick={() => setConfirmDelete(true)}
+                  className="w-full rounded-2xl border border-rose-500/30 px-4 py-3 text-sm font-medium text-rose-300 hover:bg-rose-500/10 disabled:opacity-50"
+                >
+                  Excluir tarefa
+                </button>
+              ) : (
+                <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-4">
+                  <p className="text-sm font-medium text-rose-200">
+                    Deseja realmente excluir esta tarefa?
+                  </p>
+                  <p className="mt-1 text-xs text-rose-300/80">
+                    Ela será removida do banco de dados e não poderá ser
+                    recuperada por esta página.
+                  </p>
+                  <div className="mt-4 flex gap-2">
+                    <button
+                      type="button"
+                      disabled={busyId === selectedTask.id}
+                      onClick={() => setConfirmDelete(false)}
+                      className="flex-1 rounded-xl border border-zinc-700 px-3 py-2 text-sm"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busyId === selectedTask.id}
+                      onClick={() => void handleDelete()}
+                      className="flex-1 rounded-xl bg-rose-500 px-3 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                    >
+                      {busyId === selectedTask.id
+                        ? "Excluindo..."
+                        : "Confirmar exclusão"}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
+          </section>
         </div>
       )}
     </main>

@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { getSavedActivities, saveActivities } from "../lib/activities";
+import { saveActivities } from "../lib/activities";
 import { getSupabaseActivities } from "../lib/supabase-activities";
+import { getTasks, type Task } from "../lib/tasks";
 import { supabase } from "../lib/supabase";
 
 type Activity = {
@@ -52,7 +53,7 @@ function addDays(date: Date, amount: number) {
 function activityOccursOnDate(activity: Activity, date: Date) {
   const activityDate = new Date(`${activity.date}T00:00:00`);
 
-  if (date < activityDate) {
+  if (dateKey(date) < dateKey(activityDate)) {
     return false;
   }
 
@@ -61,7 +62,7 @@ function activityOccursOnDate(activity: Activity, date: Date) {
       `${activity.recurrenceEndDate}T00:00:00`,
     );
 
-    if (date > recurrenceEndDate) {
+    if (dateKey(date) > dateKey(recurrenceEndDate)) {
       return false;
     }
   }
@@ -105,93 +106,105 @@ function getWeekStart(date: Date) {
 
 function addMinutesToTime(time: string, minutes: number) {
   const [hours, mins] = time.split(":").map(Number);
-
   const totalMinutes = hours * 60 + mins + minutes;
-
   const finalHours = Math.floor(totalMinutes / 60) % 24;
-
   const finalMinutes = totalMinutes % 60;
 
-  return `${String(finalHours).padStart(
-    2,
-    "0",
-  )}:${String(finalMinutes).padStart(2, "0")}`;
+  return `${String(finalHours).padStart(2, "0")}:${String(
+    finalMinutes,
+  ).padStart(2, "0")}`;
+}
+
+function getTaskColor(category: string) {
+  switch (category) {
+    case "Estudos":
+      return "border-l-violet-400";
+    case "Escola":
+      return "border-l-sky-400";
+    case "Igreja":
+      return "border-l-amber-400";
+    case "Robótica":
+      return "border-l-emerald-400";
+    case "Música":
+      return "border-l-pink-400";
+    case "Pessoal":
+      return "border-l-emerald-400";
+    case "Trabalho":
+      return "border-l-sky-400";
+    default:
+      return "border-l-zinc-400";
+  }
+}
+
+function taskToActivity(task: Task): Activity {
+  return {
+    id: `task-${task.id}`,
+    title: task.title,
+    date: task.date,
+    start: task.startTime ?? "00:00",
+    end: addMinutesToTime(
+      task.startTime ?? "00:00",
+      Number(task.durationMinutes) || 0,
+    ),
+    category: task.category,
+    isTask: true,
+    color: getTaskColor(task.category),
+  };
 }
 
 export default function AgendaPage() {
   const router = useRouter();
 
   const [selectedDate, setSelectedDate] = useState(() => new Date());
-
   const [view, setView] = useState<"Semana" | "Dia" | "Mês">("Semana");
-
   const [activities, setActivities] = useState<Activity[]>([]);
-
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(
     null,
   );
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
 
     async function loadActivities() {
+      setLoading(true);
+      setLoadError("");
+
       try {
-        const savedActivities = await getSupabaseActivities();
+        const [savedActivities, savedTasks] = await Promise.all([
+          getSupabaseActivities(),
+          getTasks(),
+        ]);
 
-        const savedTasks = localStorage.getItem("flow-tasks");
-        let taskActivities: Activity[] = [];
-
-        if (savedTasks) {
-          try {
-            const tasks = JSON.parse(savedTasks);
-
-            if (Array.isArray(tasks)) {
-              taskActivities = tasks
-                .filter(
-                  (task) =>
-                    task.hasTime &&
-                    task.startTime &&
-                    task.date &&
-                    !task.completed,
-                )
-                .map((task) => ({
-                  id: task.id + 1000000000000,
-                  title: task.title,
-                  date: task.date,
-                  start: task.startTime,
-                  end: addMinutesToTime(
-                    task.startTime,
-                    Number(task.durationMinutes) || 0,
-                  ),
-                  category: task.category,
-                  isTask: true,
-                  color:
-                    task.category === "Estudos"
-                      ? "border-l-violet-400"
-                      : task.category === "Escola"
-                        ? "border-l-sky-400"
-                        : task.category === "Igreja"
-                          ? "border-l-amber-400"
-                          : task.category === "Robótica"
-                            ? "border-l-emerald-400"
-                            : task.category === "Música"
-                              ? "border-l-pink-400"
-                              : "border-l-zinc-400",
-                }));
-            }
-          } catch {
-            console.error("Não foi possível carregar as tarefas na Agenda.");
-          }
-        }
+        const taskActivities: Activity[] = savedTasks
+          .filter(
+            (task) =>
+              task.hasTime &&
+              Boolean(task.startTime) &&
+              Boolean(task.date) &&
+              !task.completed,
+          )
+          .map(taskToActivity);
 
         if (!cancelled) {
           setActivities([...savedActivities, ...taskActivities]);
         }
       } catch (error) {
         console.error(
-          "Não foi possível carregar os compromissos do Supabase:",
+          "Não foi possível carregar os compromissos e as tarefas:",
           error,
         );
+
+        if (!cancelled) {
+          setLoadError(
+            "Não foi possível carregar a Agenda. Verifique sua conexão e tente novamente.",
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
 
@@ -220,9 +233,7 @@ export default function AgendaPage() {
     } else {
       setSelectedDate((date) => {
         const next = new Date(date);
-
         next.setMonth(next.getMonth() + direction);
-
         return next;
       });
     }
@@ -334,7 +345,6 @@ export default function AgendaPage() {
           <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
             <div>
               <p className="text-sm text-zinc-400">Período selecionado</p>
-
               <h2 className="mt-1 text-xl font-semibold capitalize">
                 {heading}
               </h2>
@@ -387,7 +397,6 @@ export default function AgendaPage() {
           <section className="mt-5 grid grid-cols-7 gap-1.5 sm:gap-3">
             {weekDates.map((date, index) => {
               const active = dateKey(date) === dateKey(selectedDate);
-
               const count = countActivitiesOnDate(date);
 
               return (
@@ -413,19 +422,14 @@ export default function AgendaPage() {
                   </span>
 
                   <span className="mx-auto mt-2 flex h-5 items-center justify-center gap-0.5">
-                    {Array.from(
-                      {
-                        length: Math.min(count, 3),
-                      },
-                      (_, dot) => (
-                        <span
-                          key={dot}
-                          className={`h-1 w-1 rounded-full ${
-                            active ? "bg-sky-300" : "bg-zinc-500"
-                          }`}
-                        />
-                      ),
-                    )}
+                    {Array.from({ length: Math.min(count, 3) }, (_, dot) => (
+                      <span
+                        key={dot}
+                        className={`h-1 w-1 rounded-full ${
+                          active ? "bg-sky-300" : "bg-zinc-500"
+                        }`}
+                      />
+                    ))}
                   </span>
                 </button>
               );
@@ -461,7 +465,6 @@ export default function AgendaPage() {
                   );
 
                   const count = countActivitiesOnDate(date);
-
                   const active = dateKey(date) === dateKey(selectedDate);
 
                   return (
@@ -512,7 +515,21 @@ export default function AgendaPage() {
           </div>
 
           <div className="mt-6">
-            {selectedActivities.length === 0 ? (
+            {loading ? (
+              <div className="rounded-2xl border border-zinc-800 px-4 py-10 text-center text-zinc-400">
+                Carregando atividades...
+              </div>
+            ) : loadError ? (
+              <div className="rounded-2xl border border-rose-900/60 px-4 py-8 text-center">
+                <p className="text-sm text-rose-300">{loadError}</p>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="mt-4 rounded-xl border border-zinc-700 px-4 py-2 text-sm hover:bg-zinc-800"
+                >
+                  Tentar novamente
+                </button>
+              </div>
+            ) : selectedActivities.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-zinc-700 px-4 py-10 text-center">
                 <p className="text-zinc-300">Nenhuma atividade neste dia.</p>
 
@@ -537,7 +554,6 @@ export default function AgendaPage() {
                   >
                     <div className="w-20 shrink-0">
                       <p className="text-sm font-medium">{activity.start}</p>
-
                       <p className="mt-1 text-xs text-zinc-500">
                         {activity.end}
                       </p>
@@ -545,9 +561,9 @@ export default function AgendaPage() {
 
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-medium">{activity.title}</p>
-
                       <p className="mt-1 text-sm text-zinc-400">
                         {activity.category}
+                        {activity.isTask ? " · Tarefa" : ""}
                       </p>
                     </div>
 
@@ -572,7 +588,6 @@ export default function AgendaPage() {
             ].map(([color, label]) => (
               <span key={label} className="flex items-center gap-2">
                 <span className={`h-2 w-2 rounded-full ${color}`} />
-
                 {label}
               </span>
             ))}
@@ -587,6 +602,7 @@ export default function AgendaPage() {
               <div>
                 <p className="text-sm text-zinc-400">
                   {selectedActivity.category}
+                  {selectedActivity.isTask ? " · Tarefa" : ""}
                 </p>
 
                 <h2 className="mt-2 text-2xl font-semibold">
@@ -596,6 +612,7 @@ export default function AgendaPage() {
 
               <button
                 onClick={() => setSelectedActivity(null)}
+                aria-label="Fechar detalhes"
                 className="rounded-lg px-3 py-1 text-zinc-400 hover:bg-zinc-800"
               >
                 ✕
