@@ -3,12 +3,13 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
+import { getCategoryColor } from "../../lib/activities";
 import {
-  getCategoryColor,
-  getSavedActivities,
-  saveActivities,
-} from "../../lib/activities";
-import { createSupabaseActivity } from "../../lib/supabase-activities";
+  createSupabaseActivity,
+  getSupabaseActivities,
+} from "../../lib/supabase-activities";
+import { getTasks } from "../../lib/tasks";
+import { dateKey, findConflict, timeToMinutes } from "../../lib/schedule";
 
 const months = [
   "Janeiro",
@@ -73,6 +74,9 @@ export default function CompromissoPage() {
     start: string;
     end: string;
   } | null>(null);
+
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   const [recurrence, setRecurrence] = useState<
     "none" | "weekly" | "weekdays" | "custom"
@@ -145,191 +149,99 @@ export default function CompromissoPage() {
     return startAMinutes < endBMinutes && endAMinutes > startBMinutes;
   }
 
-  function findConflict(date: string, start: string, end: string) {
-    const activities = getSavedActivities();
-
-    const activityConflict = activities.find((activity) => {
-      const selectedDate = new Date(`${date}T00:00:00`);
-      const activityDate = new Date(`${activity.date}T00:00:00`);
-
-      if (selectedDate < activityDate) {
-        return false;
-      }
-
-      if (activity.recurrenceEnd === "date" && activity.recurrenceEndDate) {
-        const recurrenceEndDate = new Date(
-          `${activity.recurrenceEndDate}T00:00:00`,
-        );
-
-        if (selectedDate > recurrenceEndDate) {
-          return false;
-        }
-      }
-
-      let occursOnDate = false;
-
-      if (!activity.recurrence || activity.recurrence === "none") {
-        occursOnDate = activity.date === date;
-      }
-
-      if (activity.recurrence === "weekly") {
-        occursOnDate = selectedDate.getDay() === activityDate.getDay();
-      }
-
-      if (activity.recurrence === "weekdays") {
-        const dayOfWeek = selectedDate.getDay();
-
-        occursOnDate = dayOfWeek >= 1 && dayOfWeek <= 5;
-      }
-
-      if (activity.recurrence === "custom") {
-        occursOnDate =
-          activity.recurrenceDays?.includes(selectedDate.getDay()) ?? false;
-      }
-
-      if (!occursOnDate) {
-        return false;
-      }
-
-      return overlaps(start, end, activity.start, activity.end);
-    });
-
-    if (activityConflict) {
-      return {
-        title: activityConflict.title,
-        start: activityConflict.start,
-        end: activityConflict.end,
-      };
-    }
-
-    const savedTasks = localStorage.getItem("flow-tasks");
-
-    if (savedTasks) {
-      try {
-        const tasks = JSON.parse(savedTasks);
-
-        if (Array.isArray(tasks)) {
-          const taskConflict = tasks.find((task) => {
-            if (
-              task.completed ||
-              !task.hasTime ||
-              !task.startTime ||
-              task.date !== date
-            ) {
-              return false;
-            }
-
-            const taskStart = task.startTime;
-
-            const taskDuration = Number(task.durationMinutes) || 0;
-
-            const taskStartMinutes = timeToMinutes(taskStart);
-
-            const taskEndMinutes = taskStartMinutes + taskDuration;
-
-            const taskEnd = `${String(Math.floor(taskEndMinutes / 60)).padStart(
-              2,
-              "0",
-            )}:${String(taskEndMinutes % 60).padStart(2, "0")}`;
-
-            return overlaps(start, end, taskStart, taskEnd);
-          });
-
-          if (taskConflict) {
-            return {
-              title: taskConflict.title,
-              start: taskConflict.startTime,
-              end: (() => {
-                const startMinutes = timeToMinutes(taskConflict.startTime);
-
-                const endMinutes =
-                  startMinutes + (Number(taskConflict.durationMinutes) || 0);
-
-                return `${String(Math.floor(endMinutes / 60)).padStart(
-                  2,
-                  "0",
-                )}:${String(endMinutes % 60).padStart(2, "0")}`;
-              })(),
-            };
-          }
-        }
-      } catch {
-        console.error("Não foi possível verificar conflitos com as tarefas.");
-      }
-    }
-
-    return null;
-  }
-
   async function handleSave(forceSave = false) {
-    if (!title.trim() || isBeforeToday || isInvalidTime) {
-      return;
-    }
+    if (saving) return;
 
-    const date = `${year}-${String(month + 1).padStart(
-      2,
-      "0",
-    )}-${String(day).padStart(2, "0")}`;
+    setSaveError("");
 
-    const startTime = `${String(startHour).padStart(
-      2,
-      "0",
-    )}:${String(startMinute).padStart(2, "0")}`;
+    if (!title.trim() || isBeforeToday || isInvalidTime) return;
 
-    const endTime = `${String(endHour).padStart(
-      2,
-      "0",
-    )}:${String(endMinute).padStart(2, "0")}`;
+    const date = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 
-    if (!forceSave) {
-      const foundConflict = findConflict(date, startTime, endTime);
+    const startTime = `${String(startHour).padStart(2, "0")}:${String(startMinute).padStart(2, "0")}`;
 
-      if (foundConflict) {
-        setConflict(foundConflict);
+    const endTime = `${String(endHour).padStart(2, "0")}:${String(endMinute).padStart(2, "0")}`;
+
+    // Compromisso único hoje: o início não pode já ter passado.
+    if (recurrence === "none") {
+      const now = new Date();
+
+      if (
+        date === dateKey(now) &&
+        timeToMinutes(startTime) < now.getHours() * 60 + now.getMinutes()
+      ) {
+        setSaveError(
+          "O horário de início já passou. Escolha um horário futuro.",
+        );
         return;
       }
     }
 
+    if (recurrence === "custom" && recurrenceDays.length === 0) {
+      setSaveError("Escolha pelo menos um dia da semana para repetir.");
+      return;
+    }
+
     const recurrenceEndDate =
       recurrence !== "none" && recurrenceEnd === "date"
-        ? `${recurrenceEndYear}-${String(recurrenceEndMonth + 1).padStart(
-            2,
-            "0",
-          )}-${String(recurrenceEndDay).padStart(2, "0")}`
+        ? `${recurrenceEndYear}-${String(recurrenceEndMonth + 1).padStart(2, "0")}-${String(recurrenceEndDay).padStart(2, "0")}`
         : null;
 
-    const newActivity = {
-      title: title.trim(),
-      date,
-      start: startTime,
-      end: endTime,
-      category,
-      color: getCategoryColor(category),
-      recurrence,
-      recurrenceDays,
-      recurrenceEnd,
-      recurrenceEndDate,
-    };
+    if (recurrenceEndDate && recurrenceEndDate < date) {
+      setSaveError(
+        "A data final da repetição não pode ser anterior à data da atividade.",
+      );
+      return;
+    }
+
+    setSaving(true);
 
     try {
-      const id = await createSupabaseActivity(newActivity);
+      if (!forceSave) {
+        const [activities, tasks] = await Promise.all([
+          getSupabaseActivities(),
+          getTasks(),
+        ]);
 
-      const currentActivities = getSavedActivities();
+        const foundConflict = findConflict({
+          date,
+          start: startTime,
+          end: endTime,
+          activities,
+          tasks,
+        });
 
-      saveActivities([
-        ...currentActivities,
-        {
-          ...newActivity,
-          id: Date.now(),
-        },
-      ]);
+        if (foundConflict) {
+          setConflict({
+            title: foundConflict.title,
+            start: foundConflict.start,
+            end: foundConflict.end,
+          });
+          return;
+        }
+      }
+
+      await createSupabaseActivity({
+        title: title.trim(),
+        date,
+        start: startTime,
+        end: endTime,
+        category,
+        color: getCategoryColor(category),
+        recurrence,
+        recurrenceDays: recurrence === "custom" ? recurrenceDays : [],
+        recurrenceEnd: recurrence === "none" ? "never" : recurrenceEnd,
+        recurrenceEndDate,
+      });
 
       router.push("/agenda");
     } catch (error) {
       console.error("Erro ao salvar compromisso:", error);
-      alert(
-        "Não foi possível salvar o compromisso no Supabase. Verifique se você está conectado à sua conta e tente novamente.",
+      setSaveError(
+        "Não foi possível salvar o compromisso. Verifique sua conexão e tente novamente.",
       );
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -710,12 +622,21 @@ export default function CompromissoPage() {
           )}
 
           {/* Botão */}
+          {saveError && (
+            <p
+              role="alert"
+              className="mt-6 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-sm text-rose-300"
+            >
+              {saveError}
+            </p>
+          )}
+
           <button
-            onClick={() => handleSave(false)}
-            disabled={!title || isBeforeToday || isInvalidTime}
+            onClick={() => void handleSave(false)}
+            disabled={saving || !title.trim() || isBeforeToday || isInvalidTime}
             className="mt-8 w-full rounded-2xl bg-zinc-100 px-4 py-3 font-medium text-zinc-950 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Salvar compromisso
+            {saving ? "Salvando..." : "Salvar compromisso"}
           </button>
         </section>
         {conflict && (

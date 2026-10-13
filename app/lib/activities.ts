@@ -1,5 +1,5 @@
 export type Activity = {
-  id: number;
+  id: string;
   title: string;
   date: string;
   start: string;
@@ -11,8 +11,6 @@ export type Activity = {
   recurrenceEnd?: "never" | "date";
   recurrenceEndDate?: string | null;
 };
-
-export const ACTIVITIES_STORAGE_KEY = "flow-activities";
 
 export function getCategoryColor(category: string) {
   if (category === "Escola") {
@@ -32,30 +30,4 @@ export function getCategoryColor(category: string) {
   }
 
   return "border-l-emerald-400";
-}
-
-export function getSavedActivities(): Activity[] {
-  if (typeof window === "undefined") {
-    return [];
-  }
-
-  const saved = localStorage.getItem(ACTIVITIES_STORAGE_KEY);
-
-  if (!saved) {
-    return [];
-  }
-
-  try {
-    return JSON.parse(saved);
-  } catch {
-    return [];
-  }
-}
-
-export function saveActivities(activities: Activity[]) {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  localStorage.setItem(ACTIVITIES_STORAGE_KEY, JSON.stringify(activities));
 }

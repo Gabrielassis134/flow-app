@@ -6,14 +6,16 @@ import { useRouter } from "next/navigation";
 import { getSupabaseActivities } from "../lib/supabase-activities";
 import { getTasks, type Task } from "../lib/tasks";
 import { supabase } from "../lib/supabase";
+import {
+  addDays,
+  dateKey,
+  getBusyItems,
+  minutesToTime,
+  rangesOverlap,
+  timeToMinutes,
+} from "../lib/schedule";
 
 type Priority = "Alta" | "Média" | "Baixa";
-
-type BusyActivity = {
-  date: string;
-  start: string;
-  end: string;
-};
 
 type Suggestion = {
   task: Task;
@@ -21,38 +23,6 @@ type Suggestion = {
   start: string;
   end: string;
 };
-
-function dateKey(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function addDays(date: Date, amount: number) {
-  const result = new Date(date);
-  result.setDate(result.getDate() + amount);
-  return result;
-}
-
-function timeToMinutes(time: string) {
-  const [hours, minutes] = time.split(":").map(Number);
-  return hours * 60 + minutes;
-}
-
-function minutesToTime(totalMinutes: number) {
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-
-  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(
-    2,
-    "0",
-  )}`;
-}
-
-function addMinutesToTime(time: string, minutes: number) {
-  return minutesToTime(timeToMinutes(time) + minutes);
-}
 
 function formatDate(date: string) {
   if (!date) return "Sem data";
@@ -69,34 +39,13 @@ function priorityWeight(priority: Priority) {
   return 2;
 }
 
-function overlaps(
-  start: number,
-  end: number,
-  busyStart: number,
-  busyEnd: number,
-) {
-  return start < busyEnd && end > busyStart;
-}
-
 function findAvailableSlots(
   date: string,
   durationMinutes: number,
-  busyActivities: BusyActivity[],
-  generatedSuggestions: Suggestion[],
+  busy: { startMinutes: number; endMinutes: number }[],
   earliestStartMinutes: number,
 ) {
   const slots: { date: string; start: string; end: string }[] = [];
-
-  const busy: BusyActivity[] = [
-    ...busyActivities.filter((activity) => activity.date === date),
-    ...generatedSuggestions
-      .filter((suggestion) => suggestion.date === date)
-      .map((suggestion) => ({
-        date: suggestion.date,
-        start: suggestion.start,
-        end: suggestion.end,
-      })),
-  ];
 
   const firstStart = Math.max(
     7 * 60,
@@ -113,11 +62,11 @@ function findAvailableSlots(
     if (endMinutes > 22 * 60) continue;
 
     const conflict = busy.some((item) =>
-      overlaps(
+      rangesOverlap(
         startMinutes,
         endMinutes,
-        timeToMinutes(item.start),
-        timeToMinutes(item.end),
+        item.startMinutes,
+        item.endMinutes,
       ),
     );
 
@@ -184,31 +133,6 @@ export default function PlanejamentoPage() {
         return;
       }
 
-      const busyActivities: BusyActivity[] = savedActivities.map(
-        (activity) => ({
-          date: activity.date,
-          start: activity.start,
-          end: activity.end,
-        }),
-      );
-
-      // Tarefas com horário já reservado também ocupam espaço na Agenda.
-      for (const task of tasks) {
-        if (
-          !task.completed &&
-          task.hasTime &&
-          task.startTime &&
-          task.date &&
-          task.durationMinutes > 0
-        ) {
-          busyActivities.push({
-            date: task.date,
-            start: task.startTime,
-            end: addMinutesToTime(task.startTime, task.durationMinutes),
-          });
-        }
-      }
-
       const orderedTasks = [...pendingTasks].sort((a, b) => {
         const priorityDifference =
           priorityWeight(a.priority) - priorityWeight(b.priority);
@@ -244,11 +168,20 @@ export default function PlanejamentoPage() {
           const currentDateKey = dateKey(currentDate);
           const isToday = currentDateKey === dateKey(now);
 
+          const busy = [
+            ...getBusyItems(currentDateKey, savedActivities, tasks),
+            ...generatedSuggestions
+              .filter((suggestion) => suggestion.date === currentDateKey)
+              .map((suggestion) => ({
+                startMinutes: timeToMinutes(suggestion.start),
+                endMinutes: timeToMinutes(suggestion.end),
+              })),
+          ];
+
           const slots = findAvailableSlots(
             currentDateKey,
             task.durationMinutes,
-            busyActivities,
-            generatedSuggestions,
+            busy,
             isToday ? earliestTodayMinutes : 7 * 60,
           );
 

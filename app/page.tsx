@@ -1,13 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { Activity } from "./lib/activities";
 import { getSupabaseActivities } from "./lib/supabase-activities";
 import { getTasks, type Task } from "./lib/tasks";
-import { supabase } from "./lib/supabase";
+
+import {
+  activityOccursOnDate,
+  dateKey,
+  getTaskEnd,
+  timeToMinutes,
+} from "./lib/schedule";
 
 type AgendaItem = {
   id: string;
@@ -17,68 +22,6 @@ type AgendaItem = {
   category: string;
   type: "activity" | "task";
 };
-
-function dateKey(date: Date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
-    2,
-    "0",
-  )}-${String(date.getDate()).padStart(2, "0")}`;
-}
-
-function timeToMinutes(time: string) {
-  const [hours, minutes] = time.split(":").map(Number);
-  return hours * 60 + minutes;
-}
-
-function minutesToTime(minutes: number) {
-  const normalizedMinutes = ((minutes % 1440) + 1440) % 1440;
-  const hours = Math.floor(normalizedMinutes / 60);
-  const mins = normalizedMinutes % 60;
-
-  return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
-}
-
-function getTaskEnd(task: Task) {
-  if (!task.startTime) return "";
-
-  return minutesToTime(
-    timeToMinutes(task.startTime) + (Number(task.durationMinutes) || 0),
-  );
-}
-
-function activityOccursOnDate(activity: Activity, date: Date) {
-  const activityDate = new Date(`${activity.date}T00:00:00`);
-
-  if (dateKey(date) < dateKey(activityDate)) return false;
-
-  if (activity.recurrenceEnd === "date" && activity.recurrenceEndDate) {
-    const recurrenceEndDate = new Date(
-      `${activity.recurrenceEndDate}T00:00:00`,
-    );
-
-    if (dateKey(date) > dateKey(recurrenceEndDate)) return false;
-  }
-
-  const dayOfWeek = date.getDay();
-
-  if (!activity.recurrence || activity.recurrence === "none") {
-    return activity.date === dateKey(date);
-  }
-
-  if (activity.recurrence === "weekly") {
-    return dayOfWeek === activityDate.getDay();
-  }
-
-  if (activity.recurrence === "weekdays") {
-    return dayOfWeek >= 1 && dayOfWeek <= 5;
-  }
-
-  if (activity.recurrence === "custom") {
-    return activity.recurrenceDays?.includes(dayOfWeek) ?? false;
-  }
-
-  return false;
-}
 
 function formatLongDate(date: Date) {
   const text = date.toLocaleDateString("pt-BR", {
@@ -113,9 +56,6 @@ function getTimeUntil(start: string, now: Date) {
 }
 
 export default function Home() {
-  const router = useRouter();
-
-  const [checkingAuth, setCheckingAuth] = useState(true);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [now, setNow] = useState<Date | null>(null);
@@ -148,45 +88,6 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    let active = true;
-
-    async function checkSession() {
-      try {
-        const {
-          data: { session },
-          error,
-        } = await supabase.auth.getSession();
-
-        if (!active) return;
-
-        if (error || !session) {
-          router.replace("/login");
-          return;
-        }
-
-        setCheckingAuth(false);
-      } catch {
-        if (active) router.replace("/login");
-      }
-    }
-
-    void checkSession();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) router.replace("/login");
-    });
-
-    return () => {
-      active = false;
-      subscription.unsubscribe();
-    };
-  }, [router]);
-
-  useEffect(() => {
-    if (checkingAuth) return;
-
     setNow(new Date());
     void loadData();
 
@@ -207,7 +108,7 @@ export default function Home() {
       window.clearInterval(clockInterval);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [checkingAuth, loadData]);
+  }, [loadData]);
 
   const today = useMemo(() => {
     if (!now) return new Date();
@@ -290,16 +191,6 @@ export default function Home() {
   }, [tasks]);
 
   const greeting = now ? getGreeting(now.getHours()) : "Olá";
-
-  if (checkingAuth) {
-    return (
-      <main className="min-h-screen bg-zinc-950 px-4 pt-16 text-zinc-100 sm:px-6">
-        <div className="mx-auto flex min-h-[60vh] max-w-7xl items-center justify-center">
-          <p className="text-sm text-zinc-400">Verificando sua sessão...</p>
-        </div>
-      </main>
-    );
-  }
 
   return (
     <main className="min-h-screen bg-zinc-950 pb-12 text-zinc-100">
