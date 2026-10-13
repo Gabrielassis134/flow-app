@@ -3,14 +3,21 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-
-import { saveActivities } from "../lib/activities";
-import { getSupabaseActivities } from "../lib/supabase-activities";
 import { getTasks, type Task } from "../lib/tasks";
-import { supabase } from "../lib/supabase";
+
+import {
+  deleteSupabaseActivity,
+  getSupabaseActivities,
+} from "../lib/supabase-activities";
+import {
+  activityOccursOnDate,
+  addDays,
+  addMinutesToTime,
+  dateKey,
+} from "../lib/schedule";
 
 type Activity = {
-  id: string | number;
+  id: string;
   title: string;
   date: string;
   start: string;
@@ -36,58 +43,6 @@ const weekdays = [
 
 const shortDays = ["DOM", "SEG", "TER", "QUA", "QUI", "SEX", "SÁB"];
 
-function dateKey(date: Date) {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-}
-
-function addDays(date: Date, amount: number) {
-  const result = new Date(date);
-  result.setDate(result.getDate() + amount);
-  return result;
-}
-
-function activityOccursOnDate(activity: Activity, date: Date) {
-  const activityDate = new Date(`${activity.date}T00:00:00`);
-
-  if (dateKey(date) < dateKey(activityDate)) {
-    return false;
-  }
-
-  if (activity.recurrenceEnd === "date" && activity.recurrenceEndDate) {
-    const recurrenceEndDate = new Date(
-      `${activity.recurrenceEndDate}T00:00:00`,
-    );
-
-    if (dateKey(date) > dateKey(recurrenceEndDate)) {
-      return false;
-    }
-  }
-
-  const dayOfWeek = date.getDay();
-
-  if (!activity.recurrence || activity.recurrence === "none") {
-    return activity.date === dateKey(date);
-  }
-
-  if (activity.recurrence === "weekly") {
-    return dayOfWeek === activityDate.getDay();
-  }
-
-  if (activity.recurrence === "weekdays") {
-    return dayOfWeek >= 1 && dayOfWeek <= 5;
-  }
-
-  if (activity.recurrence === "custom") {
-    return activity.recurrenceDays?.includes(dayOfWeek) ?? false;
-  }
-
-  return false;
-}
-
 function formatDate(date: Date) {
   return date.toLocaleDateString("pt-BR", {
     day: "numeric",
@@ -102,17 +57,6 @@ function getWeekStart(date: Date) {
   result.setDate(result.getDate() - result.getDay());
 
   return result;
-}
-
-function addMinutesToTime(time: string, minutes: number) {
-  const [hours, mins] = time.split(":").map(Number);
-  const totalMinutes = hours * 60 + mins + minutes;
-  const finalHours = Math.floor(totalMinutes / 60) % 24;
-  const finalMinutes = totalMinutes % 60;
-
-  return `${String(finalHours).padStart(2, "0")}:${String(
-    finalMinutes,
-  ).padStart(2, "0")}`;
 }
 
 function getTaskColor(category: string) {
@@ -271,38 +215,11 @@ export default function AgendaPage() {
     }
 
     try {
-      const {
-        data: { user },
-        error: authError,
-      } = await supabase.auth.getUser();
+      await deleteSupabaseActivity(selectedActivity.id);
 
-      if (authError) throw authError;
-
-      if (!user) {
-        throw new Error("Você precisa entrar na sua conta.");
-      }
-
-      const { error } = await supabase
-        .from("activities")
-        .delete()
-        .eq("id", String(selectedActivity.id))
-        .eq("user_id", user.id);
-
-      if (error) throw error;
-
-      const updatedActivities = activities.filter(
-        (activity) => activity.id !== selectedActivity.id,
+      setActivities((current) =>
+        current.filter((activity) => activity.id !== selectedActivity.id),
       );
-
-      setActivities(updatedActivities);
-
-      saveActivities(
-        updatedActivities.filter(
-          (activity): activity is Activity & { id: number } =>
-            !activity.isTask && typeof activity.id === "number",
-        ),
-      );
-
       setSelectedActivity(null);
     } catch (error) {
       console.error("Erro ao excluir compromisso:", error);

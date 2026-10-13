@@ -1,13 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type { Activity } from "./lib/activities";
 import { getSupabaseActivities } from "./lib/supabase-activities";
 import { getTasks, type Task } from "./lib/tasks";
-import { supabase } from "./lib/supabase";
+
+import {
+  activityOccursOnDate,
+  dateKey,
+  getTaskEnd,
+  timeToMinutes,
+} from "./lib/schedule";
 
 type AgendaItem = {
   id: string;
@@ -17,68 +22,6 @@ type AgendaItem = {
   category: string;
   type: "activity" | "task";
 };
-
-function dateKey(date: Date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(
-    2,
-    "0",
-  )}-${String(date.getDate()).padStart(2, "0")}`;
-}
-
-function timeToMinutes(time: string) {
-  const [hours, minutes] = time.split(":").map(Number);
-  return hours * 60 + minutes;
-}
-
-function minutesToTime(minutes: number) {
-  const normalizedMinutes = ((minutes % 1440) + 1440) % 1440;
-  const hours = Math.floor(normalizedMinutes / 60);
-  const mins = normalizedMinutes % 60;
-
-  return `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
-}
-
-function getTaskEnd(task: Task) {
-  if (!task.startTime) return "";
-
-  return minutesToTime(
-    timeToMinutes(task.startTime) + (Number(task.durationMinutes) || 0),
-  );
-}
-
-function activityOccursOnDate(activity: Activity, date: Date) {
-  const activityDate = new Date(`${activity.date}T00:00:00`);
-
-  if (dateKey(date) < dateKey(activityDate)) return false;
-
-  if (activity.recurrenceEnd === "date" && activity.recurrenceEndDate) {
-    const recurrenceEndDate = new Date(
-      `${activity.recurrenceEndDate}T00:00:00`,
-    );
-
-    if (dateKey(date) > dateKey(recurrenceEndDate)) return false;
-  }
-
-  const dayOfWeek = date.getDay();
-
-  if (!activity.recurrence || activity.recurrence === "none") {
-    return activity.date === dateKey(date);
-  }
-
-  if (activity.recurrence === "weekly") {
-    return dayOfWeek === activityDate.getDay();
-  }
-
-  if (activity.recurrence === "weekdays") {
-    return dayOfWeek >= 1 && dayOfWeek <= 5;
-  }
-
-  if (activity.recurrence === "custom") {
-    return activity.recurrenceDays?.includes(dayOfWeek) ?? false;
-  }
-
-  return false;
-}
 
 function formatLongDate(date: Date) {
   const text = date.toLocaleDateString("pt-BR", {
