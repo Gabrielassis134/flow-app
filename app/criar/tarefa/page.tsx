@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createTask, getTasks } from "../../lib/tasks";
 import { getSupabaseActivities } from "../../lib/supabase-activities";
+import { findConflict as findScheduleConflict } from "../../lib/schedule";
 
 type Priority = "Alta" | "Média" | "Baixa";
 
@@ -95,88 +96,27 @@ export default function NovaTarefaPage() {
     }
   }
 
-  function timeToMinutes(time: string) {
-    const [hour, minute] = time.split(":").map(Number);
-    return hour * 60 + minute;
-  }
-
-  function minutesToTime(minutes: number) {
-    const normalizedMinutes = ((minutes % 1440) + 1440) % 1440;
-    const hour = Math.floor(normalizedMinutes / 60);
-    const minute = normalizedMinutes % 60;
-
-    return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
-  }
-
-  function overlaps(
-    startA: string,
-    endA: string,
-    startB: string,
-    endB: string,
-  ) {
-    const startAMinutes = timeToMinutes(startA);
-    const endAMinutes = timeToMinutes(endA);
-    const startBMinutes = timeToMinutes(startB);
-    const endBMinutes = timeToMinutes(endB);
-
-    return startAMinutes < endBMinutes && endAMinutes > startBMinutes;
-  }
-
   async function findConflict(
     date: string,
     startTime: string,
     durationMinutes: number,
   ) {
-    const endTime = minutesToTime(timeToMinutes(startTime) + durationMinutes);
-
     const [activities, tasks] = await Promise.all([
       getSupabaseActivities(),
       getTasks(),
     ]);
 
-    const activityConflict = activities.find(
-      (activity) =>
-        activity.date === date &&
-        overlaps(startTime, endTime, activity.start, activity.end),
-    );
-
-    if (activityConflict) {
-      return {
-        title: activityConflict.title,
-        start: activityConflict.start,
-        end: activityConflict.end,
-      };
-    }
-
-    const taskConflict = tasks.find((task) => {
-      if (
-        task.completed ||
-        !task.hasTime ||
-        !task.startTime ||
-        !task.durationMinutes ||
-        task.date !== date
-      ) {
-        return false;
-      }
-
-      const taskEndTime = minutesToTime(
-        timeToMinutes(task.startTime) + task.durationMinutes,
-      );
-
-      return overlaps(startTime, endTime, task.startTime, taskEndTime);
+    const found = findScheduleConflict({
+      date,
+      start: startTime,
+      durationMinutes,
+      activities,
+      tasks,
     });
 
-    if (taskConflict && taskConflict.startTime) {
-      return {
-        title: taskConflict.title,
-        start: taskConflict.startTime,
-        end: minutesToTime(
-          timeToMinutes(taskConflict.startTime) + taskConflict.durationMinutes,
-        ),
-      };
-    }
-
-    return null;
+    return found
+      ? { title: found.title, start: found.start, end: found.end }
+      : null;
   }
 
   async function handleSave(forceSave = false) {
