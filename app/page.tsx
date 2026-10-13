@@ -113,9 +113,6 @@ function getTimeUntil(start: string, now: Date) {
 }
 
 export default function Home() {
-  const router = useRouter();
-
-  const [checkingAuth, setCheckingAuth] = useState(true);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [now, setNow] = useState<Date | null>(null);
@@ -148,45 +145,6 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    let active = true;
-
-    async function checkSession() {
-      try {
-        const {
-          data: { session },
-          error,
-        } = await supabase.auth.getSession();
-
-        if (!active) return;
-
-        if (error || !session) {
-          router.replace("/login");
-          return;
-        }
-
-        setCheckingAuth(false);
-      } catch {
-        if (active) router.replace("/login");
-      }
-    }
-
-    void checkSession();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) router.replace("/login");
-    });
-
-    return () => {
-      active = false;
-      subscription.unsubscribe();
-    };
-  }, [router]);
-
-  useEffect(() => {
-    if (checkingAuth) return;
-
     setNow(new Date());
     void loadData();
 
@@ -207,7 +165,7 @@ export default function Home() {
       window.clearInterval(clockInterval);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [checkingAuth, loadData]);
+  }, [loadData]);
 
   const today = useMemo(() => {
     if (!now) return new Date();
@@ -290,16 +248,6 @@ export default function Home() {
   }, [tasks]);
 
   const greeting = now ? getGreeting(now.getHours()) : "Olá";
-
-  if (checkingAuth) {
-    return (
-      <main className="min-h-screen bg-zinc-950 px-4 pt-16 text-zinc-100 sm:px-6">
-        <div className="mx-auto flex min-h-[60vh] max-w-7xl items-center justify-center">
-          <p className="text-sm text-zinc-400">Verificando sua sessão...</p>
-        </div>
-      </main>
-    );
-  }
 
   return (
     <main className="min-h-screen bg-zinc-950 pb-12 text-zinc-100">
