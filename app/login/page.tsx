@@ -3,47 +3,96 @@
 import { useState } from "react";
 import { supabase } from "../lib/supabase";
 
+type Aviso = { tipo: "erro" | "sucesso"; texto: string } | null;
+
+const MENSAGEM_USUARIO_INVALIDO =
+  "Nome de usuário inválido. Use de 8 a 30 caracteres, somente letras minúsculas, números, pontos e sublinhados. Não use ponto no início, no fim ou dois pontos seguidos.";
+
+function validarNomeUsuario(usuario: string) {
+  return (
+    usuario.length >= 8 &&
+    usuario.length <= 30 &&
+    /^[a-z0-9._]+$/.test(usuario) &&
+    !usuario.startsWith(".") &&
+    !usuario.endsWith(".") &&
+    !usuario.includes("..")
+  );
+}
+
+function traduzirErro(mensagem: string) {
+  const texto = mensagem.toLowerCase();
+
+  if (texto.includes("invalid login credentials")) {
+    return "E-mail ou senha incorretos.";
+  }
+
+  if (texto.includes("email not confirmed")) {
+    return "Confirme seu e-mail antes de entrar. Verifique sua caixa de entrada.";
+  }
+
+  if (texto.includes("already registered")) {
+    return "Este e-mail já está cadastrado. Tente entrar.";
+  }
+
+  if (texto.includes("rate limit") || texto.includes("too many")) {
+    return "Muitas tentativas. Aguarde um pouco e tente novamente.";
+  }
+
+  if (texto.includes("password should be")) {
+    return "A senha é muito fraca. Use pelo menos 8 caracteres.";
+  }
+
+  if (texto.includes("database error saving new user")) {
+    return "Não foi possível criar a conta. Esse nome de usuário pode já estar em uso.";
+  }
+
+  if (texto.includes("failed to fetch") || texto.includes("network")) {
+    return "Não foi possível conectar. Verifique sua internet e tente novamente.";
+  }
+
+  return "Não foi possível concluir a operação. Tente novamente.";
+}
+
 export default function LoginPage() {
   const [modo, setModo] = useState<"entrar" | "criar">("entrar");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [nome, setNome] = useState("");
   const [nomeUsuario, setNomeUsuario] = useState("");
-  const [mensagem, setMensagem] = useState("");
+  const [aviso, setAviso] = useState<Aviso>(null);
   const [carregando, setCarregando] = useState(false);
-
-  function validarNomeUsuario(usuario: string) {
-    return (
-      usuario.length >= 8 &&
-      usuario.length <= 30 &&
-      /^[a-z0-9._]+$/.test(usuario) &&
-      !usuario.startsWith(".") &&
-      !usuario.endsWith(".") &&
-      !usuario.includes("..")
-    );
-  }
 
   async function enviarFormulario(evento: React.FormEvent<HTMLFormElement>) {
     evento.preventDefault();
-    setMensagem("");
+    setAviso(null);
 
     const usuario = nomeUsuario.trim().toLowerCase();
 
     if (modo === "criar") {
       if (!nome.trim()) {
-        setMensagem("Digite seu nome de exibição.");
+        setAviso({ tipo: "erro", texto: "Digite seu nome de exibição." });
         return;
       }
 
       if (!validarNomeUsuario(usuario)) {
-        setMensagem(
-          "Nome de usuário inválido. Use de 8 a 30 caracteres, somente letras minúsculas, números, pontos e sublinhados. Não use ponto no início, no fim ou dois pontos seguidos.",
-        );
+        setAviso({ tipo: "erro", texto: MENSAGEM_USUARIO_INVALIDO });
+        return;
+      }
+
+      if (senha.length < 8) {
+        setAviso({
+          tipo: "erro",
+          texto: "A senha deve ter pelo menos 8 caracteres.",
+        });
         return;
       }
     }
 
     setCarregando(true);
+
+    // Quando o login dá certo, o LayoutShell percebe a nova sessão e
+    // redireciona para o início. Aqui só mantemos o botão bloqueado.
+    let sessaoIniciada = false;
 
     try {
       if (modo === "criar") {
@@ -51,6 +100,7 @@ export default function LoginPage() {
           email: email.trim(),
           password: senha,
           options: {
+            emailRedirectTo: `${window.location.origin}/`,
             data: {
               display_name: nome.trim(),
               username: usuario,
@@ -60,14 +110,26 @@ export default function LoginPage() {
 
         if (error) throw error;
 
-        if (data.session) {
-          window.location.href = "/";
+        // Com confirmação de e-mail ativa, um e-mail já cadastrado não gera
+        // erro: o Supabase devolve um usuário sem identidades.
+        if (data.user && data.user.identities?.length === 0) {
+          setAviso({
+            tipo: "erro",
+            texto: "Este e-mail já está cadastrado. Tente entrar.",
+          });
           return;
         }
 
-        setMensagem(
-          "Conta criada! Confira seu e-mail para confirmar o cadastro.",
-        );
+        if (data.session) {
+          sessaoIniciada = true;
+          return;
+        }
+
+        setAviso({
+          tipo: "sucesso",
+          texto: "Conta criada! Confira seu e-mail para confirmar o cadastro.",
+        });
+        setSenha("");
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email: email.trim(),
@@ -76,28 +138,27 @@ export default function LoginPage() {
 
         if (error) throw error;
 
-        window.location.href = "/";
-        return;
+        sessaoIniciada = true;
       }
     } catch (erro) {
-      setMensagem(
-        erro instanceof Error
-          ? erro.message
-          : "Não foi possível concluir a operação.",
-      );
+      console.error("Erro de autenticação:", erro);
+
+      setAviso({
+        tipo: "erro",
+        texto:
+          erro instanceof Error
+            ? traduzirErro(erro.message)
+            : "Não foi possível concluir a operação. Tente novamente.",
+      });
     } finally {
-      setCarregando(false);
+      if (!sessaoIniciada) setCarregando(false);
     }
   }
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-zinc-950 px-4 py-10 text-zinc-100">
       <section className="w-full max-w-md rounded-3xl border border-zinc-800 bg-zinc-900 p-7 shadow-xl sm:p-9">
-        <a href="/" className="text-sm text-zinc-400 hover:text-white">
-          ← Voltar ao Flow
-        </a>
-
-        <div className="mb-8 mt-8">
+        <div className="mb-8">
           <p className="text-sm font-medium text-sky-400">
             Organize sua rotina. Viva seu tempo.
           </p>
@@ -218,12 +279,14 @@ export default function LoginPage() {
               autoComplete={
                 modo === "entrar" ? "current-password" : "new-password"
               }
-              minLength={6}
+              minLength={modo === "criar" ? 8 : undefined}
               required
               value={senha}
               onChange={(e) => setSenha(e.target.value)}
               className="w-full rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 outline-none focus:border-sky-500"
-              placeholder="Pelo menos 6 caracteres"
+              placeholder={
+                modo === "criar" ? "Pelo menos 8 caracteres" : "Sua senha"
+              }
             />
           </div>
 
@@ -240,12 +303,16 @@ export default function LoginPage() {
           </button>
         </form>
 
-        {mensagem && (
+        {aviso && (
           <p
-            role="status"
-            className="mt-5 break-words rounded-xl border border-zinc-700 bg-zinc-950 p-3 text-sm text-zinc-300"
+            role={aviso.tipo === "erro" ? "alert" : "status"}
+            className={`mt-5 break-words rounded-xl border p-3 text-sm ${
+              aviso.tipo === "erro"
+                ? "border-rose-500/30 bg-rose-500/10 text-rose-300"
+                : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+            }`}
           >
-            {mensagem}
+            {aviso.texto}
           </p>
         )}
 
@@ -255,7 +322,7 @@ export default function LoginPage() {
             type="button"
             onClick={() => {
               setModo(modo === "entrar" ? "criar" : "entrar");
-              setMensagem("");
+              setAviso(null);
             }}
             className="font-medium text-sky-400 hover:text-sky-300"
           >
