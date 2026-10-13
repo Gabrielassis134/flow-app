@@ -16,34 +16,39 @@ type SupabaseActivity = {
   recurrence_end_date: string | null;
 };
 
-export async function getSupabaseActivities(): Promise<Activity[]> {
+async function getCurrentUserId(actionMessage: string): Promise<string> {
   const {
     data: { user },
-    error: authError,
+    error,
   } = await supabase.auth.getUser();
 
-  if (authError) throw authError;
+  if (error) throw error;
 
   if (!user) {
-    throw new Error(
-      "Você precisa entrar na sua conta para carregar os compromissos.",
-    );
+    throw new Error(`Você precisa entrar na sua conta para ${actionMessage}.`);
   }
+
+  return user.id;
+}
+
+export async function getSupabaseActivities(): Promise<Activity[]> {
+  const userId = await getCurrentUserId("carregar os compromissos");
 
   const { data, error } = await supabase
     .from("activities")
     .select("*")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .order("date", { ascending: true });
 
   if (error) throw error;
 
-  return (data as SupabaseActivity[]).map((item) => ({
-    id: item.id as unknown as number,
+  return ((data ?? []) as SupabaseActivity[]).map((item) => ({
+    id: item.id,
     title: item.title,
     date: item.date,
-    start: item.start_time ?? "",
-    end: item.end_time ?? "",
+    // O Postgres devolve "HH:mm:ss"; o app trabalha com "HH:mm".
+    start: item.start_time?.slice(0, 5) ?? "",
+    end: item.end_time?.slice(0, 5) ?? "",
     category: item.category,
     color: item.color ?? "",
     recurrence: item.recurrence,
@@ -56,23 +61,12 @@ export async function getSupabaseActivities(): Promise<Activity[]> {
 export async function createSupabaseActivity(
   activity: Omit<Activity, "id">,
 ): Promise<string> {
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError) throw authError;
-
-  if (!user) {
-    throw new Error(
-      "Você precisa entrar na sua conta para salvar compromissos.",
-    );
-  }
+  const userId = await getCurrentUserId("salvar compromissos");
 
   const { data, error } = await supabase
     .from("activities")
     .insert({
-      user_id: user.id,
+      user_id: userId,
       title: activity.title,
       date: activity.date,
       start_time: activity.start || null,
@@ -90,4 +84,16 @@ export async function createSupabaseActivity(
   if (error) throw error;
 
   return data.id;
+}
+
+export async function deleteSupabaseActivity(id: string): Promise<void> {
+  const userId = await getCurrentUserId("excluir compromissos");
+
+  const { error } = await supabase
+    .from("activities")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", userId);
+
+  if (error) throw error;
 }
