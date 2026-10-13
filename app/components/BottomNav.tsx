@@ -11,12 +11,17 @@ import {
   Users,
   Menu,
   X,
+  Settings,
+  LogOut,
   Image as ImageIcon,
 } from "lucide-react";
+
+import { supabase } from "../lib/supabase";
 
 export default function BottomNav() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
 
   const links = [
     { href: "/", label: "Início", icon: Home },
@@ -31,6 +36,26 @@ export default function BottomNav() {
       ? pathname === "/"
       : pathname === href || pathname.startsWith(`${href}/`);
 
+  // O LayoutShell percebe o fim da sessão e redireciona para /login.
+  async function handleSignOut() {
+    if (signingOut) return;
+
+    setSigningOut(true);
+
+    try {
+      const { error } = await supabase.auth.signOut();
+
+      if (error) throw error;
+
+      setMenuOpen(false);
+    } catch (error) {
+      console.error("Erro ao sair da conta:", error);
+      alert("Não foi possível sair da conta. Tente novamente.");
+    } finally {
+      setSigningOut(false);
+    }
+  }
+
   const logoTextClass =
     "!text-slate-900 dark:!text-white text-xl font-bold tracking-tight";
 
@@ -44,8 +69,15 @@ export default function BottomNav() {
         : "text-slate-600 hover:text-slate-950 dark:text-zinc-400 dark:hover:text-zinc-100"
     }`;
 
+  const getIconButtonClass = (active: boolean) =>
+    `flex h-10 w-10 items-center justify-center rounded-xl transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 ${
+      active
+        ? "bg-slate-100 text-sky-700 dark:bg-zinc-800 dark:text-sky-300"
+        : "text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
+    }`;
+
   const getMobileLinkClass = (active: boolean) =>
-    `flex min-h-12 items-center gap-3 rounded-xl px-4 py-3 text-sm transition-colors duration-150 ${
+    `flex min-h-12 w-full items-center gap-3 rounded-xl px-4 py-3 text-sm transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50 ${
       active
         ? "font-semibold text-sky-700 dark:text-sky-300"
         : "text-slate-600 hover:bg-slate-100 hover:text-slate-950 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
@@ -99,6 +131,32 @@ export default function BottomNav() {
                 </Link>
               );
             })}
+
+            <span
+              aria-hidden="true"
+              className="mx-2 h-6 w-px bg-slate-200 dark:bg-zinc-800"
+            />
+
+            <Link
+              href="/configuracoes"
+              aria-label="Configurações"
+              title="Configurações"
+              aria-current={isActive("/configuracoes") ? "page" : undefined}
+              className={getIconButtonClass(isActive("/configuracoes"))}
+            >
+              <Settings size={18} />
+            </Link>
+
+            <button
+              type="button"
+              onClick={() => void handleSignOut()}
+              disabled={signingOut}
+              aria-label="Sair da conta"
+              title="Sair da conta"
+              className={getIconButtonClass(false)}
+            >
+              <LogOut size={18} />
+            </button>
           </nav>
         </div>
       </header>
@@ -164,6 +222,31 @@ export default function BottomNav() {
             );
           })}
         </nav>
+
+        <div
+          className="mt-auto flex flex-col gap-1 border-t border-slate-200 p-3 dark:border-zinc-800"
+          style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+        >
+          <Link
+            href="/configuracoes"
+            aria-current={isActive("/configuracoes") ? "page" : undefined}
+            onClick={() => setMenuOpen(false)}
+            className={getMobileLinkClass(isActive("/configuracoes"))}
+          >
+            <Settings size={20} />
+            Configurações
+          </Link>
+
+          <button
+            type="button"
+            onClick={() => void handleSignOut()}
+            disabled={signingOut}
+            className={getMobileLinkClass(false)}
+          >
+            <LogOut size={20} />
+            {signingOut ? "Saindo..." : "Sair da conta"}
+          </button>
+        </div>
       </aside>
     </>
   );
