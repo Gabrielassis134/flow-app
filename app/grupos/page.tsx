@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+import { notifyInboxChanged } from "../lib/group-items";
 import {
   createGroup,
   getMyGroupInvites,
@@ -14,7 +15,6 @@ import {
   type GroupSummary,
   type ReceivedGroupInvite,
 } from "../lib/groups";
-
 export default function GruposPage() {
   const router = useRouter();
 
@@ -68,6 +68,7 @@ export default function GruposPage() {
 
     try {
       await respondGroupInvite(invite.id, accept);
+      notifyInboxChanged();
       await load(true);
     } catch (err) {
       console.error("Erro ao responder convite:", err);
