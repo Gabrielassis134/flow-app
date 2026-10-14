@@ -384,6 +384,23 @@ export default function GrupoPage() {
           )}
         </header>
 
+        {(isOwner || me.role === "admin") && (
+          <Link
+            href={`/criar/grupo?grupo=${group.id}`}
+            className="mt-6 flex items-center justify-between gap-4 rounded-3xl border border-zinc-800 bg-zinc-900/70 p-5 transition hover:border-zinc-700 hover:bg-zinc-900"
+          >
+            <div>
+              <p className="font-medium">Novo compromisso ou tarefa</p>
+
+              <p className="mt-1 text-sm text-zinc-500">
+                Escolha quem participa e envie o pedido.
+              </p>
+            </div>
+
+            <span className="text-xl text-zinc-600">›</span>
+          </Link>
+        )}
+
         {feedback && (
           <p
             role={feedback.tipo === "erro" ? "alert" : "status"}

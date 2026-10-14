@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Home,
   CalendarDays,
@@ -12,16 +12,60 @@ import {
   Menu,
   X,
   Settings,
+  Inbox,
   LogOut,
   Image as ImageIcon,
 } from "lucide-react";
 
 import { supabase } from "../lib/supabase";
+import { getInboxCount, INBOX_CHANGED_EVENT } from "../lib/group-items";
 
 export default function BottomNav() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [inboxCount, setInboxCount] = useState(0);
+
+  // Contador da caixa de entrada: atualiza ao trocar de página, a cada
+  // minuto, ao voltar para a aba e quando algo é aceito ou recusado.
+  useEffect(() => {
+    let active = true;
+
+    async function refreshInbox() {
+      try {
+        const count = await getInboxCount();
+
+        if (active) setInboxCount(count);
+      } catch (error) {
+        console.error("Erro ao contar a caixa de entrada:", error);
+      }
+    }
+
+    void refreshInbox();
+
+    const interval = window.setInterval(() => void refreshInbox(), 60000);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") void refreshInbox();
+    };
+
+    const handleChanged = () => void refreshInbox();
+
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener(INBOX_CHANGED_EVENT, handleChanged);
+
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener(INBOX_CHANGED_EVENT, handleChanged);
+    };
+  }, [pathname]);
+
+  const inboxLabel =
+    inboxCount > 0
+      ? `Caixa de entrada, ${inboxCount} pendente${inboxCount === 1 ? "" : "s"}`
+      : "Caixa de entrada";
 
   const links = [
     { href: "/", label: "Início", icon: Home },
@@ -93,9 +137,16 @@ export default function BottomNav() {
             aria-label={menuOpen ? "Fechar menu" : "Abrir menu"}
             aria-expanded={menuOpen}
             aria-controls="flow-mobile-menu"
-            className="flex h-11 w-11 items-center justify-center rounded-xl text-slate-700 transition hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800 lg:hidden"
+            className="relative flex h-11 w-11 items-center justify-center rounded-xl text-slate-700 transition hover:bg-slate-100 dark:text-zinc-200 dark:hover:bg-zinc-800 lg:hidden"
           >
             {menuOpen ? <X size={24} /> : <Menu size={24} />}
+
+            {inboxCount > 0 && !menuOpen && (
+              <span
+                aria-hidden="true"
+                className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-sky-500"
+              />
+            )}
           </button>
 
           <Link
@@ -136,6 +187,25 @@ export default function BottomNav() {
               aria-hidden="true"
               className="mx-2 h-6 w-px bg-slate-200 dark:bg-zinc-800"
             />
+
+            <Link
+              href="/caixa-de-entrada"
+              aria-label={inboxLabel}
+              title="Caixa de entrada"
+              aria-current={isActive("/caixa-de-entrada") ? "page" : undefined}
+              className={`relative ${getIconButtonClass(isActive("/caixa-de-entrada"))}`}
+            >
+              <Inbox size={18} />
+
+              {inboxCount > 0 && (
+                <span
+                  aria-hidden="true"
+                  className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-sky-500 px-1 text-[11px] font-semibold text-zinc-950"
+                >
+                  {inboxCount > 9 ? "9+" : inboxCount}
+                </span>
+              )}
+            </Link>
 
             <Link
               href="/configuracoes"
@@ -227,6 +297,21 @@ export default function BottomNav() {
           className="mt-auto flex flex-col gap-1 border-t border-slate-200 p-3 dark:border-zinc-800"
           style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
         >
+          <Link
+            href="/caixa-de-entrada"
+            aria-current={isActive("/caixa-de-entrada") ? "page" : undefined}
+            onClick={() => setMenuOpen(false)}
+            className={getMobileLinkClass(isActive("/caixa-de-entrada"))}
+          >
+            <Inbox size={20} />
+            Caixa de entrada
+            {inboxCount > 0 && (
+              <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-sky-500 px-1.5 text-[11px] font-semibold text-zinc-950">
+                {inboxCount > 9 ? "9+" : inboxCount}
+              </span>
+            )}
+          </Link>
+
           <Link
             href="/configuracoes"
             aria-current={isActive("/configuracoes") ? "page" : undefined}
