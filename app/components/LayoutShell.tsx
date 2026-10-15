@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 import BottomNav from "./BottomNav";
+import ReminderController from "./ReminderController";
 import { supabase } from "../lib/supabase";
 
 // Rotas que podem ser abertas sem uma conta conectada.
@@ -87,6 +88,7 @@ export default function LayoutShell({
     <>
       <div className="min-h-screen pt-16">{children}</div>
       <BottomNav />
+      <ReminderController />
     </>
   );
 }

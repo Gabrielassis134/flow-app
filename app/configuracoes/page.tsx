@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "../lib/supabase";
-
+import NotificationSettings from "../components/NotificationSettings";
 type Theme = "dark" | "light" | "system";
 
 type Settings = {
@@ -16,6 +16,7 @@ type Settings = {
   allowInvites: boolean;
   searchableProfile: boolean;
   weekStartsOn: "sunday" | "monday";
+  reminderLeadMinutes: number;
 };
 
 type Profile = {
@@ -36,6 +37,7 @@ const defaultSettings: Settings = {
   allowInvites: true,
   searchableProfile: true,
   weekStartsOn: "sunday",
+  reminderLeadMinutes: 15,
 };
 
 function getSavedSettings(): Settings {
@@ -439,6 +441,13 @@ export default function Configuracoes() {
               onClick={() => toggleSetting("groupReminders")}
             />
           </div>
+          <NotificationSettings
+            leadMinutes={settings.reminderLeadMinutes}
+            disabled={!settings.notificationsEnabled}
+            onLeadMinutesChange={(value) =>
+              updateSetting("reminderLeadMinutes", value)
+            }
+          />
         </section>
 
         {/* Privacidade */}
